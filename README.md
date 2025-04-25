@@ -1,4 +1,4 @@
-# Entropy-stable discontinuous spectral-element methods for the spherical shallow water equations in covariant form
+# Entropy-Stable Discontinuous Spectral-Element Methods for the Spherical Shallow Water Equations in Covariant Form
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-success.svg)](https://opensource.org/licenses/MIT)
 
