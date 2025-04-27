@@ -11,7 +11,7 @@ using OrdinaryDiffEq, Trixi, TrixiAtmo
 
 initial_condition = initial_condition_unsteady_solid_body_rotation
 polydeg = 3
-cells_per_dimension = (2, 2)
+cells_per_dimension = 2
 n_saves = 10
 tspan = (0.0, 15.0 * SECONDS_PER_DAY)
 output_dir = "out"
@@ -20,7 +20,7 @@ output_dir = "out"
 # Spatial discretization
 
 mesh = P4estMeshCubedSphere2D(
-    cells_per_dimension[1],
+    cells_per_dimension,
     EARTH_RADIUS,
     polydeg = polydeg,
     element_local_mapping = true,
