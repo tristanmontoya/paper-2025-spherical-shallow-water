@@ -11,11 +11,11 @@ const RESULTS_DIR = joinpath(dirname(dirname(@__DIR__)), "results")
 
 function driver_convergence_test(
     elixir::AbstractString,
-    iterations,
+    iterations = 1,
     RealT = Float64;
     results_dir = RESULTS_DIR,
-    polydeg = 3,
-    initial_resolution = 2,
+    polydeg = 3:4,
+    initial_resolution = 4,
     initial_condition = initial_condition_unsteady_solid_body_rotation,
     date = Dates.format(today(), dateformat"yyyymmdd"),
     identifier = "",
@@ -45,44 +45,43 @@ function driver_convergence_test(
     resolutions = RealT[]
     errors = Dict(:l2 => RealT[], :linf => RealT[])
 
+    cells_per_dimension = initial_resolution .* 2 .^ ((1:iterations) .-1)
+
     # run simulations and extract errors
-    for iter = 1:iterations
-        println("Running convtest iteration ", iter, "/", iterations)
-        cells_per_dimension = initial_resolution * 2^(iter - 1)
-        trixi_include(
-            mod,
-            elixir;
-            kwargs...,
-            output_dir = joinpath(
-                project_dir,
-                string("N", polydeg, "M", cells_per_dimension),
-            ),
-            polydeg = polydeg,
-            cells_per_dimension = cells_per_dimension,
-        )
-
-        l2_error, linf_error = mod.analysis_callback(mod.sol)
-        resolution = π * EARTH_RADIUS / (cells_per_dimension * polydeg)
-
-        # collect errors as one vector to reshape later
-        append!(resolutions, resolution)
-        append!(errors[:l2], l2_error)
-        append!(errors[:linf], linf_error)
-
-        open(joinpath(project_dir, "analysis.dat"), "a") do io
-            Printf.format(
-                io,
-                fmt,
-                polydeg,
-                cells_per_dimension,
-                resolution,
-                l2_error[1],
-                linf_error[1],
+    for N in polydeg
+        for M in cells_per_dimension
+            trixi_include(
+                mod,
+                elixir;
+                kwargs...,
+                output_dir = joinpath(project_dir, string("N", N, "M", M)),
+                polydeg = N,
+                cells_per_dimension = M,
             )
-        end
 
-        println("\n\n")
-        println("#"^100)
+            l2_error, linf_error = mod.analysis_callback(mod.sol)
+            resolution = π * EARTH_RADIUS / (M * N)
+
+            # collect errors as one vector to reshape later
+            append!(resolutions, resolution)
+            append!(errors[:l2], l2_error)
+            append!(errors[:linf], linf_error)
+
+            open(joinpath(project_dir, "analysis.dat"), "a") do io
+                Printf.format(
+                    io,
+                    fmt,
+                    N,
+                    M,
+                    resolution,
+                    l2_error[1],
+                    linf_error[1],
+                )
+            end
+
+            println("\n\n")
+            println("#"^100)
+        end
     end
 
 end
