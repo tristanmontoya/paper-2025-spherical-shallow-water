@@ -17,6 +17,12 @@ tspan = (0.0, 15.0 * SECONDS_PER_DAY)
 output_dir = "out"
 
 ###############################################################################
+# Custom outputs 
+waterheight_squared = (u, aux, equations) -> waterheight(u, equations)^2
+Trixi.pretty_form_utf(::typeof(waterheight_squared)) = "∑h²"
+Trixi.pretty_form_ascii(::typeof(waterheight_squared)) = "h_squared"
+
+###############################################################################
 # Spatial discretization
 
 mesh = P4estMeshCubedSphere2D(
@@ -76,8 +82,7 @@ analysis_callback = AnalysisCallback(
     interval = 200,
     save_analysis = true,
     output_directory = output_dir,
-    extra_analysis_errors = (:conservation_error,),
-    extra_analysis_integrals = (entropy,),
+    extra_analysis_integrals = (entropy, waterheight_squared),
 )
 
 # The SaveSolutionCallback allows to save the solution to a file in regular intervals
@@ -107,3 +112,6 @@ sol = solve(
     save_everystep = false,
     callback = callbacks,
 )
+
+l2_height_error = analysis_callback(sol)[1][1]
+l2_height_normalization = sqrt(integrate(waterheight_squared, last(sol.u), semi))

@@ -35,17 +35,18 @@ function driver_convergence_test(
         mkpath(joinpath(results_dir, string(date, "_", ic_name, "_conv", identifier)))
 
     # Format output file and write headers
-    fmt = Printf.Format("%-4d" * "%-4d" * "%-25.17e"^3 * "\n")
-    headers = ["N   ", "M   ", "Resolution (km)", "l2 height error", "linf height error"]
+    fmt1 = Printf.Format("%-4d" * "%-4d" * "%-25.17e"^2 * "\n") # no EOC
+    fmt2 = Printf.Format("%-4d" * "%-4d" * "%-25.17e"^2 * "%.2f" * "\n")
+
+    headers = ["N   ", "M   ", "Resolution (km)", "Normalized height error", "Order"]
     open(joinpath(project_dir, "analysis.dat"), "w") do io
         println(io, string(headers[1:2]..., rpad.(headers[3:end], 25)..., " "))
     end
 
-    # Types of errors to be calculated
     resolutions = RealT[]
-    errors = Dict(:l2 => RealT[], :linf => RealT[])
+    errors = RealT[]
 
-    cells_per_dimension = initial_resolution .* 2 .^ ((1:iterations) .-1)
+    cells_per_dimension = initial_resolution .* 2 .^ ((1:iterations) .- 1)
 
     # run simulations and extract errors
     for N in polydeg
@@ -59,24 +60,26 @@ function driver_convergence_test(
                 cells_per_dimension = M,
             )
 
-            l2_error, linf_error = mod.analysis_callback(mod.sol)
+            l2_height_error_normalized = mod.l2_height_error / mod.l2_height_normalization
             resolution = π * EARTH_RADIUS / (M * N)
 
-            # collect errors as one vector to reshape later
             append!(resolutions, resolution)
-            append!(errors[:l2], l2_error)
-            append!(errors[:linf], linf_error)
+            append!(errors, l2_height_error_normalized)
 
             open(joinpath(project_dir, "analysis.dat"), "a") do io
-                Printf.format(
-                    io,
-                    fmt,
-                    N,
-                    M,
-                    resolution,
-                    l2_error[1],
-                    linf_error[1],
-                )
+                if M == initial_resolution
+                    Printf.format(io, fmt1, N, M, resolution, l2_height_error_normalized)
+                else
+                    Printf.format(
+                        io,
+                        fmt2,
+                        N,
+                        M,
+                        resolution,
+                        l2_height_error_normalized,
+                        log(errors[end] / errors[end-1]) / log(1 / 2),
+                    )
+                end
             end
 
             println("\n\n")
