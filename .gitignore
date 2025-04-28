@@ -17,5 +17,9 @@ deps/src/
 docs/build/
 docs/site/
 
+# Solution and mesh files 
+*.h5
+*p4est_data
+
 # MacOS files 
 .DS_Store

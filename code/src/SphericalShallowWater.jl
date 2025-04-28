@@ -60,6 +60,8 @@ function driver_convergence_test(
                 cells_per_dimension = M,
             )
 
+            # Note that by default, both the error and normalization factor have been 
+            # scaled by the domain size.
             l2_height_error_normalized = mod.l2_height_error / mod.l2_height_normalization
             resolution = π * EARTH_RADIUS / (M * N)
 
