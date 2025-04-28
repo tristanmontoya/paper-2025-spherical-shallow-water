@@ -1,7 +1,5 @@
 ###############################################################################
-# Entropy-conservative DGSEM for the shallow water equations in covariant form 
-# on the cubed sphere: Unsteady solid-body rotation (Example 3, Läuter et al.,
-# 2005)
+# Standard elixir for the spherical shallow water equations
 ###############################################################################
 
 using OrdinaryDiffEq, Trixi, TrixiAtmo

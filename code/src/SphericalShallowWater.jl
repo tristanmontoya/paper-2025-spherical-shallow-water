@@ -4,21 +4,21 @@ using Trixi, TrixiAtmo
 using Dates, Printf
 
 export EXAMPLES_DIR, RESULTS_DIR
-export driver_convergence_test
+export run_driver
 
 const EXAMPLES_DIR = TrixiAtmo.examples_dir()
 const RESULTS_DIR = joinpath(dirname(dirname(@__DIR__)), "results")
 
-function driver_convergence_test(
+function run_driver(
     elixir::AbstractString,
-    iterations = 1,
+    iterations = 1, # number of times to double `cells_per_dimension`
     RealT = Float64;
-    results_dir = RESULTS_DIR,
-    polydeg = 3:4,
-    initial_resolution = 4,
+    results_dir = RESULTS_DIR, # top level directory to store results
+    polydeg = 3:4, # can also be a single integer value
+    initial_resolution = 4, # initial value of `cells_per_dimension`
     initial_condition = initial_condition_unsteady_solid_body_rotation,
     date = Dates.format(today(), dateformat"yyyymmdd"),
-    identifier = "",
+    identifier = "", # suffix to identify a specific run
     kwargs...,
 )
 
