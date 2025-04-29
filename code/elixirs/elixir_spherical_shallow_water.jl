@@ -8,6 +8,7 @@ using OrdinaryDiffEq, Trixi, TrixiAtmo
 # Parameters
 
 initial_condition = initial_condition_unsteady_solid_body_rotation
+auxiliary_field = bottom_topography_unsteady_solid_body_rotation
 polydeg = 3
 cells_per_dimension = 2
 n_saves = 10
@@ -60,7 +61,7 @@ semi = SemidiscretizationHyperbolic(
     initial_condition_transformed,
     solver,
     source_terms = source_terms_geometric_coriolis,
-    auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
+    auxiliary_field = auxiliary_field,
 )
 
 ###############################################################################
