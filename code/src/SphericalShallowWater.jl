@@ -90,14 +90,16 @@ function run_driver(
 
 end
 
+# plot_convergence(["../results/20250430_unsteady_solid_body_rotation_N4_ec/", "../results/20250430_unsteady_solid_body_rotation_N4_es/"])
 function plot_convergence(
-    dir = joinpath(
+    dirs = joinpath(
         RESULTS_DIR,
         string(
             Dates.format(today(), dateformat"yyyymmdd"),
             "_unsteady_solid_body_rotation",
         ),
     );
+    labels = ["Entropy conservative", "Entropy stable"],
     file = "analysis.dat",
     xlabel = LaTeXString("Nominal resolution (km)"),
     ylabel = L"Normalized $L^2$ height error",
@@ -106,20 +108,22 @@ function plot_convergence(
     yticklabelfont = "CMU Serif",
     xlims = nothing,
     ylims = nothing,
-    xticks = LogTicks(3:7),
-    yticks = LogTicks(-5:-2),
+    xticks = LogTicks(0:4),
+    yticks = LogTicks(-12:-4),
     xscale = log10,
     yscale = log10,
     kwargs...,
 )
 
     set_theme!(Theme(font = font))
-    data = CSV.File(
-        joinpath(dir, file);
-        header = true,
-        delim = ' ',
-        select = [3, 4],
-        ignorerepeated = true,
+    data = Dict(
+        dir => CSV.File(
+            joinpath(dir, file);
+            header = true,
+            delim = ' ',
+            select = [3, 4],
+            ignorerepeated = true,
+        ) for dir in dirs
     )
 
     f = Figure(size = (400, 300))
@@ -142,8 +146,17 @@ function plot_convergence(
         ylims!(ax, ylims)
     end
 
-    scatterlines!(ax, data["resolution"], data["l2_height_normalized"])
-    save(joinpath(dir, "convergence.pdf"), f)
+    # Divide by 1000 to get km
+    for (dir, label) in zip(dirs, labels)
+        scatterlines!(
+            ax,
+            data[dir]["resolution"] ./ 1000,
+            data[dir]["l2_height_normalized"],
+            label = LaTeXString(label),
+        )
+    end
+    axislegend(ax, position = (:left, :top))
+    save(joinpath(first(dirs), "convergence.pdf"), f)
 end
 
 end # module SphericalShallowWater

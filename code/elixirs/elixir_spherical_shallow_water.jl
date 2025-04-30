@@ -108,7 +108,7 @@ sol = solve(
     ode,
     CarpenterKennedy2N54(williamson_condition = false),
     dt = 100.0,
-    maxiters=1e7,
+    maxiters = 1e7,
     save_everystep = false,
     callback = callbacks,
 )
