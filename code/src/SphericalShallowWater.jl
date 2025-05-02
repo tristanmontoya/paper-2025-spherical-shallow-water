@@ -94,25 +94,34 @@ function plot_convergence(
             "_unsteady_solid_body_rotation",
         ),
     );
-    labels = ["Entropy conservative", "Entropy stable"],
+    labels = [LaTeXString("Entropy conservative"), LaTeXString("Entropy stable")],
+    styles = [:dash, :solid],
+    colors = [:black, :black],
     file = "analysis.dat",
+    xkey = "resolution_km",
+    ykey = "l2_height_normalized",
     xlabel = LaTeXString("Nominal resolution (km)"),
     ylabel = L"Normalized $L^2$ height error",
     font = "CMU Serif",
-    size = (400, 300),
+    size = (350, 350),
     fontsize = 12,
     xticklabelfont = "CMU Serif",
     yticklabelfont = "CMU Serif",
+    legendfont = "CMU Serif",
     xlims = nothing,
-    ylims = nothing,
-    xticks = LogTicks(0:6),
-    yticks = LogTicks(-12:-4),
+    ylims = [1e-12, 1e-2],
+    xticks = LogTicks(1:4),
+    yticks = LogTicks(-12:-2),
+    xminorticks=IntervalsBetween(10),
     xscale = log10,
     yscale = log10,
-    triangle = true,
-    triangle_order = 5,
+    triangle_bottom = true,
+    triangle_top = true,
+    triangle_bottom_order = 5,
+    triangle_top_order = 5,
     triangle_size = 2.0,
-    triangle_shift = 0.5,
+    triangle_shift = 2.0,
+    legend_position = (:right, :bottom),
     kwargs...,
 )
 
@@ -123,7 +132,7 @@ function plot_convergence(
             joinpath(dir, file);
             header = true,
             delim = ' ',
-            select = [3, 4],
+            select = [1, 2, 3, 4],
             ignorerepeated = true,
         ) for dir in dirs
     )
@@ -140,31 +149,37 @@ function plot_convergence(
         yticks = yticks,
         xscale = xscale,
         yscale = yscale,
+        xminorgridvisible=true,
+        xminorticks = xminorticks,
         kwargs...,
     )
 
     # by default use Makie's automatic axis scaling. Otherwise use custom values.
-    if !isnothing(xlims) || !isnothing(ylims)
+    if !isnothing(xlims)
         xlims!(ax, xlims)
+    end
+    if !isnothing(ylims)
         ylims!(ax, ylims)
     end
 
     # Draw lines for each directory
-    for (dir, label) in zip(dirs, labels)
+    for (dir, label, style, color) in zip(dirs, labels, styles, colors)
         scatterlines!(
             ax,
-            data[dir]["resolution_km"],
-            data[dir]["l2_height_normalized"],
-            label = LaTeXString(label),
+            data[dir][xkey],
+            data[dir][ykey],
+            label = label,
+            linestyle = style,
+            color = color
         )
     end
 
     # Make convergence triangle
-    if triangle
-        x0 = data[dirs[end]]["resolution_km"][end]
+    if triangle_bottom
+        x0 = data[dirs[end]][xkey][end]
         x1 = x0 * triangle_size
-        y0 = data[dirs[end]]["l2_height_normalized"][end] * triangle_shift
-        y1 = y0 * triangle_size^triangle_order
+        y0 = data[dirs[end]][ykey][end] / triangle_shift
+        y1 = y0 * triangle_size^triangle_bottom_order
         lines!(ax, [x0, x1, x1, x0], [y0, y0, y1, y0]; color = :black)
 
         # Place text at centroid
@@ -172,57 +187,34 @@ function plot_convergence(
         ym = 10^((2 * log10(y0) + log10(y1)) / 3)
         text!(
             ax,
-            string(triangle_order, ":1");
+            string(triangle_bottom_order, ":1");
             position = (xm, ym),
             align = (:center, :center),
-            color = :black,
+            color = :black
         )
     end
 
-    axislegend(ax, position = (:left, :top))
-    save(joinpath(first(dirs), "convergence.pdf"), f)
-end
+    if triangle_top
+        x0 = data[dirs[1]][xkey][end]
+        x1 = x0 * triangle_size
+        y0 = data[dirs[1]][ykey][end] * triangle_shift
+        y1 = y0 * triangle_size^triangle_top_order
+        lines!(ax, [x0, x1, x0, x0], [y0, y1, y1, y0]; color = :black)
 
-function slope_triangle!(
-    ax;
-    order::Real,
-    anchor::Tuple{<:Real,<:Real},
-    dx::Real = 2,
-    color = :black,
-    label::Bool = true,
-    labelfontsize::Real = 14,
-)
-
-    x0, y0 = anchor                 # lower-left corner in *data* units
-    x1 = x0 * dx                # horizontal length  = Δx
-    y2 = y0 * dx^(order)       # vertical length    = (Δx)ᵖ   (because log–log)
-
-    println(x0, " ", x1, " ", y0, " ", y2)
-    # draw the outline (transparent fill keeps the underlying grid visible)
-    poly!(
-        ax,
-        Point2f[(x0, y0), (x1, y0), (x1, y2)];
-        color = :red,
-        strokecolor = :black,
-        strokewidth = 1.5,
-    )
-    # :contentReference[oaicite:0]{index=0}
-    #=
-    # optional “p” label at triangle centre (geometric mean works well)
-    if label
-        xm = sqrt(x0 * x1)
-        ym = sqrt(y0 * y2)
+        # Place text at centroid (actually shift a bit to be prettier)
+        xm = 10^((2.1 * log10(x0) + 0.9*log10(x1)) / 3) 
+        ym = 10^((0.9 * log10(y0) + 2.1 * log10(y1)) / 3)
         text!(
             ax,
-            string(order);
+            string(triangle_top_order, ":1");
             position = (xm, ym),
             align = (:center, :center),
-            color = color,
-            fontsize = labelfontsize,
-        )          # :contentReference[oaicite:1]{index=1}
+            color = :black
+        )
     end
-    return nothing
-    =#
+
+    axislegend(ax, position = legend_position, font=legendfont)
+    save(joinpath(first(dirs), "convergence.pdf"), f)
 end
 
 end # module SphericalShallowWater
