@@ -24,11 +24,6 @@ function run_driver(
 
     mod = @__MODULE__
 
-    @assert(
-        iterations > 1,
-        "Number of iterations must be bigger than 1 for a convergence analysis"
-    )
-
     # Get name for project
     ic_name = replace(string(initial_condition), r"^initial_condition_" => "")
     project_dir = mkpath(joinpath(results_dir, string(date, "_", ic_name, identifier)))
@@ -68,7 +63,7 @@ function run_driver(
             append!(errors, l2_height_normalized)
 
             open(joinpath(project_dir, "analysis.dat"), "a") do io
-                if M == initial_resolution # don't compute order for first grid
+                if M == initial_cells_per_dimension # don't compute order for first grid
                     Printf.format(io, fmt1, N, M, resolution_km, l2_height_normalized)
                 else
                     Printf.format(
@@ -121,6 +116,7 @@ function plot_convergence(
     kwargs...,
 )
 
+    # Load data from file 
     set_theme!(Theme(font = font))
     data = Dict(
         dir => CSV.File(
@@ -132,6 +128,7 @@ function plot_convergence(
         ) for dir in dirs
     )
 
+    # Set up figure parameters
     f = Figure(size = size, fontsize = fontsize)
     ax = Axis(
         f[1, 1];
@@ -152,7 +149,7 @@ function plot_convergence(
         ylims!(ax, ylims)
     end
 
-    # Divide by 1000 to get km
+    # Draw lines for each directory
     for (dir, label) in zip(dirs, labels)
         scatterlines!(
             ax,
@@ -169,7 +166,9 @@ function plot_convergence(
         y0 = data[dirs[end]]["l2_height_normalized"][end] * triangle_shift
         y1 = y0 * triangle_size^triangle_order
         lines!(ax, [x0, x1, x1, x0], [y0, y0, y1, y0]; color = :black)
-        xm = 10^((log10(x0) + 2 * log10(x1)) / 3)
+
+        # Place text at centroid
+        xm = 10^((log10(x0) + 2 * log10(x1)) / 3) 
         ym = 10^((2 * log10(y0) + log10(y1)) / 3)
         text!(
             ax,
