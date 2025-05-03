@@ -5,6 +5,7 @@ using CairoMakie, LaTeXStrings, Dates, Printf, CSV
 
 export EXAMPLES_DIR, RESULTS_DIR
 export run_driver, plot_convergence
+export initial_condition_steady_barotropic_instability
 
 const EXAMPLES_DIR = TrixiAtmo.examples_dir()
 const RESULTS_DIR = joinpath(dirname(dirname(@__DIR__)), "results")
@@ -216,5 +217,29 @@ function plot_convergence(
     axislegend(ax, position = legend_position, font=legendfont)
     save(joinpath(first(dirs), "convergence.pdf"), f)
 end
+
+@inline function initial_condition_steady_barotropic_instability(x, t, equations)
+    RealT = eltype(x)
+    a = sqrt(x[1]^2 + x[2]^2 + x[3]^2)  # radius of the sphere
+    lon, lat = atan(x[2], x[1]), asin(x[3] / a)
+
+    # compute zonal and meridional velocity components
+    u_0 = 80.0f0
+    lat_0 = convert(RealT, π / 7)
+    lat_1 = convert(RealT, π / 2) - lat_0
+    vlon = TrixiAtmo.galewsky_velocity(lat, u_0, lat_0, lat_1)
+    vlat = zero(eltype(x))
+
+    # numerically integrate (here we use the QuadGK package) to get height
+    galewsky_integral, _ = TrixiAtmo.quadgk(latp -> TrixiAtmo.galewsky_integrand(latp, u_0, 
+                                    lat_0, lat_1, a), convert(RealT, π / 2), lat)
+    h = 10158.0f0 - a / EARTH_GRAVITATIONAL_ACCELERATION * galewsky_integral
+
+    # Convert primitive variables from spherical coordinates to the chosen global 
+    # coordinate system, which depends on the equation type
+    return TrixiAtmo.spherical2global(SVector(h, vlon, vlat, zero(RealT), zero(RealT)), x,
+                            equations)
+end
+
 
 end # module SphericalShallowWater
