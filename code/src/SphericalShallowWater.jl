@@ -51,7 +51,7 @@ function run_driver(
                 elixir;
                 kwargs...,
                 output_dir = joinpath(project_dir, string("N", N, "M", M)),
-                initial_condition = initial_condition
+                initial_condition = initial_condition,
                 polydeg = N,
                 cells_per_dimension = M,
             )
