@@ -4,7 +4,7 @@ using Trixi, TrixiAtmo, Trixi2Vtk
 using CairoMakie, LaTeXStrings, Dates, Printf, CSV
 
 export EXAMPLES_DIR, RESULTS_DIR
-export run_driver, plot_convergence
+export run_driver, plot_convergence, plot_evolution
 export initial_condition_steady_barotropic_instability
 
 const EXAMPLES_DIR = TrixiAtmo.examples_dir()
@@ -51,6 +51,7 @@ function run_driver(
                 elixir;
                 kwargs...,
                 output_dir = joinpath(project_dir, string("N", N, "M", M)),
+                initial_condition = initial_condition
                 polydeg = N,
                 cells_per_dimension = M,
             )
@@ -86,7 +87,6 @@ function run_driver(
 
 end
 
-# plot_convergence(["../results/20250430_unsteady_solid_body_rotation_N4_ec/", "../results/20250430_unsteady_solid_body_rotation_N4_es/"])
 function plot_convergence(
     dirs = joinpath(
         RESULTS_DIR,
@@ -218,6 +218,80 @@ function plot_convergence(
     save(joinpath(first(dirs), "convergence.pdf"), f)
 end
 
+function plot_evolution(
+        dirs = joinpath(
+            RESULTS_DIR,
+            string(
+                Dates.format(today(), dateformat"yyyymmdd"),
+                "_steady_barotropic_instability",
+            ), "N7M4"
+        );
+        labels = [LaTeXString("Entropy conservative"), LaTeXString("Entropy stable")],
+        styles = [:dash, :solid],
+        colors = [:black, :black],
+        file = "analysis.dat",
+        xkey = "time",
+        ykey = "entropy",
+        xlabel = L"Time $t$",
+        ylabel = L"Entropy $\eta$",
+        font = "CMU Serif",
+        size = (350, 350),
+        fontsize = 12,
+        xticklabelfont = "CMU Serif",
+        yticklabelfont = "CMU Serif",
+        legendfont = "CMU Serif",
+        xlims = nothing,
+        ylims = nothing,
+        legend_position = (:right, :bottom),
+        kwargs...,
+    )
+
+    # Load data from file 
+    set_theme!(Theme(font = font))
+    data = Dict(
+        dir => CSV.File(
+            joinpath(dir, file);
+            header = true,
+            delim = ' ',
+            select = collect(1:12),
+            ignorerepeated = true,
+        ) for dir in dirs
+    )
+
+    # Set up figure parameters
+    f = Figure(size = size, fontsize = fontsize)
+    ax = Axis(
+        f[1, 1];
+        xlabel = xlabel,
+        ylabel = ylabel,
+        xticklabelfont = xticklabelfont,
+        yticklabelfont = yticklabelfont,
+        kwargs...,
+    )
+
+    # by default use Makie's automatic axis scaling. Otherwise use custom values.
+    if !isnothing(xlims)
+        xlims!(ax, xlims)
+    end
+    if !isnothing(ylims)
+        ylims!(ax, ylims)
+    end
+
+    # Draw lines for each directory
+    for (dir, label, style, color) in zip(dirs, labels, styles, colors)
+        scatterlines!(
+            ax,
+            data[dir][xkey],
+            data[dir][ykey],
+            label = label,
+            linestyle = style,
+            color = color
+        )
+    end
+
+    axislegend(ax, position = legend_position, font=legendfont)
+    save(joinpath(first(dirs), string(ykey, "_evolution.pdf")), f)
+end
 @inline function initial_condition_steady_barotropic_instability(x, t, equations)
     RealT = eltype(x)
     a = sqrt(x[1]^2 + x[2]^2 + x[3]^2)  # radius of the sphere
