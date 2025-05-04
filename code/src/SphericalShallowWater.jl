@@ -113,7 +113,7 @@ function plot_convergence(
     ylims = [1e-12, 1e-2],
     xticks = LogTicks(1:4),
     yticks = LogTicks(-12:-2),
-    xminorticks=IntervalsBetween(10),
+    xminorticks = IntervalsBetween(10),
     xscale = log10,
     yscale = log10,
     triangle_bottom = true,
@@ -150,7 +150,7 @@ function plot_convergence(
         yticks = yticks,
         xscale = xscale,
         yscale = yscale,
-        xminorgridvisible=true,
+        xminorgridvisible = true,
         xminorticks = xminorticks,
         kwargs...,
     )
@@ -171,7 +171,7 @@ function plot_convergence(
             data[dir][ykey],
             label = label,
             linestyle = style,
-            color = color
+            color = color,
         )
     end
 
@@ -184,14 +184,14 @@ function plot_convergence(
         lines!(ax, [x0, x1, x1, x0], [y0, y0, y1, y0]; color = :black)
 
         # Place text at centroid
-        xm = 10^((log10(x0) + 2 * log10(x1)) / 3) 
+        xm = 10^((log10(x0) + 2 * log10(x1)) / 3)
         ym = 10^((2 * log10(y0) + log10(y1)) / 3)
         text!(
             ax,
             string(triangle_bottom_order, ":1");
             position = (xm, ym),
             align = (:center, :center),
-            color = :black
+            color = :black,
         )
     end
 
@@ -203,48 +203,51 @@ function plot_convergence(
         lines!(ax, [x0, x1, x0, x0], [y0, y1, y1, y0]; color = :black)
 
         # Place text at centroid (actually shift a bit to be prettier)
-        xm = 10^((2.1 * log10(x0) + 0.9*log10(x1)) / 3) 
+        xm = 10^((2.1 * log10(x0) + 0.9 * log10(x1)) / 3)
         ym = 10^((0.9 * log10(y0) + 2.1 * log10(y1)) / 3)
         text!(
             ax,
             string(triangle_top_order, ":1");
             position = (xm, ym),
             align = (:center, :center),
-            color = :black
+            color = :black,
         )
     end
 
-    axislegend(ax, position = legend_position, font=legendfont)
+    axislegend(ax, position = legend_position, font = legendfont)
     save(joinpath(first(dirs), "convergence.pdf"), f)
 end
 
 function plot_evolution(
-        dirs = joinpath(
-            RESULTS_DIR,
-            string(
-                Dates.format(today(), dateformat"yyyymmdd"),
-                "_steady_barotropic_instability",
-            ), "N7M4"
-        );
-        labels = [LaTeXString("Entropy conservative"), LaTeXString("Entropy stable")],
-        styles = [:dash, :solid],
-        colors = [:black, :black],
-        file = "analysis.dat",
-        xkey = "time",
-        ykey = "entropy",
-        xlabel = L"Time $t$",
-        ylabel = L"Entropy $\eta$",
-        font = "CMU Serif",
-        size = (350, 350),
-        fontsize = 12,
-        xticklabelfont = "CMU Serif",
-        yticklabelfont = "CMU Serif",
-        legendfont = "CMU Serif",
-        xlims = nothing,
-        ylims = nothing,
-        legend_position = (:right, :bottom),
-        kwargs...,
-    )
+    dirs = joinpath(
+        RESULTS_DIR,
+        string(
+            Dates.format(today(), dateformat"yyyymmdd"),
+            "_steady_barotropic_instability",
+        ),
+        "N7M4",
+    );
+    labels = [LaTeXString("Entropy conservative"), LaTeXString("Entropy stable")],
+    styles = [:dash, :solid],
+    colors = [:black, :black],
+    file = "analysis.dat",
+    xkey = "time",
+    ykey = "entropy",
+    xlabel = LaTeXString("Time (days)"),
+    ylabel = LaTeXString("Normalized entropy change"),
+    x_in_days = true,
+    relative = true,
+    font = "CMU Serif",
+    size = (350, 350),
+    fontsize = 12,
+    xticklabelfont = "CMU Serif",
+    yticklabelfont = "CMU Serif",
+    legendfont = "CMU Serif",
+    xlims = nothing,
+    ylims = nothing,
+    legend_position = (:right, :bottom),
+    kwargs...,
+)
 
     # Load data from file 
     set_theme!(Theme(font = font))
@@ -279,17 +282,20 @@ function plot_evolution(
 
     # Draw lines for each directory
     for (dir, label, style, color) in zip(dirs, labels, styles, colors)
-        scatterlines!(
-            ax,
-            data[dir][xkey],
-            data[dir][ykey],
-            label = label,
-            linestyle = style,
-            color = color
-        )
+        if x_in_days
+            xvalues = data[dir][xkey] / SECONDS_PER_DAY
+        else
+            xvalues = data[dir][xkey]
+        end
+        if relative
+            yvalues = (data[dir][ykey] .- data[dir][ykey][1]) / data[dir][ykey][1]
+        else
+            yvalues = data[dir][ykey]
+        end
+        lines!(ax, xvalues, yvalues, label = label, linestyle = style, color = color)
     end
 
-    axislegend(ax, position = legend_position, font=legendfont)
+    axislegend(ax, position = legend_position, font = legendfont)
     save(joinpath(first(dirs), string(ykey, "_evolution.pdf")), f)
 end
 @inline function initial_condition_steady_barotropic_instability(x, t, equations)
@@ -305,14 +311,20 @@ end
     vlat = zero(eltype(x))
 
     # numerically integrate (here we use the QuadGK package) to get height
-    galewsky_integral, _ = TrixiAtmo.quadgk(latp -> TrixiAtmo.galewsky_integrand(latp, u_0, 
-                                    lat_0, lat_1, a), convert(RealT, π / 2), lat)
+    galewsky_integral, _ = TrixiAtmo.quadgk(
+        latp -> TrixiAtmo.galewsky_integrand(latp, u_0, lat_0, lat_1, a),
+        convert(RealT, π / 2),
+        lat,
+    )
     h = 10158.0f0 - a / EARTH_GRAVITATIONAL_ACCELERATION * galewsky_integral
 
     # Convert primitive variables from spherical coordinates to the chosen global 
     # coordinate system, which depends on the equation type
-    return TrixiAtmo.spherical2global(SVector(h, vlon, vlat, zero(RealT), zero(RealT)), x,
-                            equations)
+    return TrixiAtmo.spherical2global(
+        SVector(h, vlon, vlat, zero(RealT), zero(RealT)),
+        x,
+        equations,
+    )
 end
 
 
