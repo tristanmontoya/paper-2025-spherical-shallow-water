@@ -16,7 +16,10 @@ tspan = (0.0, 15.0 * SECONDS_PER_DAY)
 output_dir = "out"
 
 ###############################################################################
-# Custom outputs 
+# Custom outputs
+mass = (u, aux, equations) -> waterheight(u, equations)
+Trixi.pretty_form_utf(::typeof(mass)) = "mass"
+Trixi.pretty_form_ascii(::typeof(mass)) = "mass"
 waterheight_squared = (u, aux, equations) -> waterheight(u, equations)^2
 Trixi.pretty_form_utf(::typeof(waterheight_squared)) = "∑h²"
 Trixi.pretty_form_ascii(::typeof(waterheight_squared)) = "h_squared"
@@ -81,7 +84,7 @@ analysis_callback = AnalysisCallback(
     interval = 200,
     save_analysis = true,
     output_directory = output_dir,
-    extra_analysis_integrals = (entropy, waterheight_squared),
+    extra_analysis_integrals = (entropy, mass, waterheight_squared),
 )
 
 # The SaveSolutionCallback allows to save the solution to a file in regular intervals
