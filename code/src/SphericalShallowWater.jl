@@ -137,7 +137,8 @@ function plot_convergence(
     ylabel = L"Normalized $L^2$ height error",
     font = "CMU Serif",
     size = (350, 350),
-    fontsize = 12,
+    fontsize = 15,
+    legendfontsize = 12,
     xticklabelfont = "CMU Serif",
     yticklabelfont = "CMU Serif",
     legendfont = "CMU Serif",
@@ -246,7 +247,7 @@ function plot_convergence(
         )
     end
 
-    axislegend(ax, position = legend_position, font = legendfont)
+    axislegend(ax, position = legend_position, font = legendfont, labelfontsize = legendfontsize)
     save(joinpath(first(dirs), "convergence.pdf"), f)
 end
 
@@ -255,7 +256,6 @@ end
 # plot_evolution(["../results/20250505_isolated_mountain_ec/N3M20", "../results/20250505_isolated_mountain_es/N3M20"], legend_position=(:left, :bottom), xticks=collect(0:7), ykey="mass", ylabel=LaTeXString("Normalized mass change"), ynorm = 1e-14, exponent_text=L"\times 10^{-14}")
 
 # plot_evolution(["../results/20250505_isolated_mountain_ec/N3M20", "../results/20250505_isolated_mountain_es/N3M20"], ykey="entropy", ynorm=1e-8, exponent_text=L"\times 10^{-8}", xticks=collect(0:7), legend_position=(:left, :bottom))
-
 
 function plot_evolution(
     dirs = joinpath(
@@ -279,12 +279,14 @@ function plot_evolution(
     relative = true,
     font = "CMU Serif",
     size = (350, 350),
-    fontsize = 12,
+    fontsize = 14,
+    legendfontsize = 12,
     xticklabelfont = "CMU Serif",
     yticklabelfont = "CMU Serif",
     legendfont = "CMU Serif",
     xlims = nothing,
     ylims = nothing,
+    legend=true,
     legend_position = (:right, :bottom),
     exponent_text = nothing,
     kwargs...,
@@ -339,8 +341,9 @@ function plot_evolution(
     if !isnothing(exponent_text)
         Label(f[1, 1, Top()], halign = :left, exponent_text)
     end
-
-    axislegend(ax, position = legend_position, font = legendfont)
+    if legend
+        axislegend(ax, position = legend_position, font = legendfont, labelsize = legendfontsize)
+    end
     save(joinpath(first(dirs), string(ykey, "_evolution.pdf")), f)
 end
 
