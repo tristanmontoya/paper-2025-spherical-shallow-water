@@ -12,7 +12,7 @@ auxiliary_field = bottom_topography_unsteady_solid_body_rotation
 polydeg = 3
 cells_per_dimension = 2
 n_saves = 10
-tspan = (0.0, 15.0 * SECONDS_PER_DAY)
+tspan = (0.0, 5.0 * SECONDS_PER_DAY)
 output_dir = "out"
 
 ###############################################################################
@@ -78,7 +78,7 @@ summary_callback = SummaryCallback()
 # results. Note that entropy should be conserved at the semi-discrete level.
 analysis_callback = AnalysisCallback(
     semi,
-    interval = 200,
+    interval = 50,
     save_analysis = true,
     output_directory = output_dir,
     extra_analysis_integrals = (mass, entropy),
@@ -92,7 +92,7 @@ save_solution = SaveSolutionCallback(
 )
 
 # The StepsizeCallback handles the re-calculation of the maximum Δt after each time step
-stepsize_callback = StepsizeCallback(cfl = 0.4)
+stepsize_callback = StepsizeCallback(cfl = 0.1)
 
 # Create a CallbackSet to collect all callbacks such that they can be passed to the ODE 
 # solver
@@ -108,7 +108,7 @@ sol = solve(
     ode,
     CarpenterKennedy2N54(williamson_condition = false),
     dt = 100.0,
-    maxiters = 1e7,
+    maxiters = 1e8,
     save_everystep = false,
     callback = callbacks,
 )
