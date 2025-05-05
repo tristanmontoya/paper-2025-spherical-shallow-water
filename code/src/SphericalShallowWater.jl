@@ -133,6 +133,7 @@ function plot_convergence(
     xkey = "resolution_km",
     ykey = "l2_height_error",
     ynorm = "l2_height_norm",
+    legend = true,
     xlabel = LaTeXString("Nominal resolution (km)"),
     ylabel = L"Normalized $L^2$ height error",
     font = "CMU Serif",
@@ -144,7 +145,7 @@ function plot_convergence(
     legendfont = "CMU Serif",
     xlims = nothing,
     ylims = [1e-12, 1e-2],
-    xticks = LogTicks(1:4),
+    xticks =[10, 20, 40, 80, 160, 320, 640, 1280],
     yticks = LogTicks(-12:-2),
     xminorticks = IntervalsBetween(10),
     xscale = log10,
@@ -166,13 +167,13 @@ function plot_convergence(
             joinpath(dir, file);
             header = true,
             delim = ' ',
-            select = [1, 2, 3, 4],
+            select = collect(1:7),
             ignorerepeated = true,
         ) for dir in dirs
     )
 
     # Set up figure parameters
-    f = Figure(size = size, fontsize = fontsize)
+    f = Figure(size = size, fontsize = fontsize, labelfontsize=legendfontsize)
     ax = Axis(
         f[1, 1];
         xlabel = xlabel,
@@ -201,7 +202,7 @@ function plot_convergence(
         scatterlines!(
             ax,
             data[dir][xkey],
-            data[dir][ykey] / data[dir][ynorm],
+            data[dir][ykey] ./ data[dir][ynorm],
             label = label,
             linestyle = style,
             color = color,
@@ -225,6 +226,7 @@ function plot_convergence(
             position = (xm, ym),
             align = (:center, :center),
             color = :black,
+            fontsize = legendfontsize,
         )
     end
 
@@ -244,10 +246,13 @@ function plot_convergence(
             position = (xm, ym),
             align = (:center, :center),
             color = :black,
+            fontsize = legendfontsize,
         )
     end
-
-    axislegend(ax, position = legend_position, font = legendfont, labelfontsize = legendfontsize)
+    
+    if legend
+        axislegend(ax; position = legend_position, font = legendfont, labelsize = legendfontsize)
+    end
     save(joinpath(first(dirs), "convergence.pdf"), f)
 end
 
@@ -342,7 +347,7 @@ function plot_evolution(
         Label(f[1, 1, Top()], halign = :left, exponent_text)
     end
     if legend
-        axislegend(ax, position = legend_position, font = legendfont, labelsize = legendfontsize)
+        axislegend(ax; position = legend_position, font = legendfont, labelsize = legendfontsize)
     end
     save(joinpath(first(dirs), string(ykey, "_evolution.pdf")), f)
 end
