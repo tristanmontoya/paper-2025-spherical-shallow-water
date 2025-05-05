@@ -20,9 +20,6 @@ output_dir = "out"
 mass = (u, aux, equations) -> waterheight(u, equations)
 Trixi.pretty_form_utf(::typeof(mass)) = "mass"
 Trixi.pretty_form_ascii(::typeof(mass)) = "mass"
-waterheight_squared = (u, aux, equations) -> waterheight(u, equations)^2
-Trixi.pretty_form_utf(::typeof(waterheight_squared)) = "∑h²"
-Trixi.pretty_form_ascii(::typeof(waterheight_squared)) = "h_squared"
 
 ###############################################################################
 # Spatial discretization
@@ -84,7 +81,7 @@ analysis_callback = AnalysisCallback(
     interval = 200,
     save_analysis = true,
     output_directory = output_dir,
-    extra_analysis_integrals = (entropy, mass, waterheight_squared),
+    extra_analysis_integrals = (mass, entropy),
 )
 
 # The SaveSolutionCallback allows to save the solution to a file in regular intervals
@@ -116,5 +113,8 @@ sol = solve(
     callback = callbacks,
 )
 
-l2_height_error = analysis_callback(sol)[1][1]
-l2_height_normalization = sqrt(integrate(waterheight_squared, last(sol.u), semi))
+l2_error, linf_error = analysis_callback(sol)
+l2_norm, linf_norm = calc_norms(initial_condition_transformed, last(sol.t), mesh, equations, solver, semi.cache)
+
+l2_height_error, linf_height_error = l2_error[1], linf_error[1]
+l2_height_norm, linf_height_norm = l2_norm[1], linf_norm[1]
