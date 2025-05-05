@@ -33,9 +33,27 @@ function run_driver(
     # Format top-level output file and write headers
     fmt1 = Printf.Format("%-4d" * "%-4d" * "%-25.17e"^5 * "missing  " * "missing" * "\n") # no EOC
     fmt2 = Printf.Format("%-4d" * "%-4d" * "%-25.17e"^5 * "%-9.2f" * "%-9.2f" * "\n")
-    headers = ["N   ", "M   ", "resolution_km", "l2_height_error", "linf_height_error", "l2_height_norm",  "linf_height_norm", "l2_order ", "linf_order"]
+    headers = [
+        "N   ",
+        "M   ",
+        "resolution_km",
+        "l2_height_error",
+        "linf_height_error",
+        "l2_height_norm",
+        "linf_height_norm",
+        "l2_order ",
+        "linf_order",
+    ]
     open(joinpath(project_dir, "analysis.dat"), "w") do io
-        println(io, string(headers[1:2]..., rpad.(headers[3:end-2], 25)..., headers[end-1], headers[end]))
+        println(
+            io,
+            string(
+                headers[1:2]...,
+                rpad.(headers[3:end-2], 25)...,
+                headers[end-1],
+                headers[end],
+            ),
+        )
     end
 
     resolutions = RealT[]
@@ -60,12 +78,22 @@ function run_driver(
             resolution_km = π * EARTH_RADIUS / (2 * M * N * 1000) # scale by 1000 to get km
 
             append!(resolutions, resolution_km)
-            append!(l2_errors, mod.l2_height_error) 
+            append!(l2_errors, mod.l2_height_error)
             append!(linf_errors, mod.linf_height_error)
 
             open(joinpath(project_dir, "analysis.dat"), "a") do io
                 if M == initial_cells_per_dimension # don't compute order for first grid
-                    Printf.format(io, fmt1, N, M, resolution_km, l2_height_error, linf_height_error, l2_height_norm, linf_height_norm)
+                    Printf.format(
+                        io,
+                        fmt1,
+                        N,
+                        M,
+                        resolution_km,
+                        l2_height_error,
+                        linf_height_error,
+                        l2_height_norm,
+                        linf_height_norm,
+                    )
                 else
                     Printf.format(
                         io,
@@ -222,6 +250,13 @@ function plot_convergence(
     save(joinpath(first(dirs), "convergence.pdf"), f)
 end
 
+# plot_evolution(["../results/20250505_well_balanced_ec/N3M20", "../results/20250505_well_balanced_es/N3M20"], ykey="linf_h", legend_position=(:left, :top), colors=[:black,:black], relative=false, ynorm=1e-10, exponent_text=L"\times 10^{-10}", ylabel=LaTeXString("Maximum deviation from initial height (m)"), xticks=collect(0:7))
+
+# plot_evolution(["../results/20250505_isolated_mountain_ec/N3M20", "../results/20250505_isolated_mountain_es/N3M20"], legend_position=(:left, :bottom), xticks=collect(0:7), ykey="mass", ylabel=LaTeXString("Normalized mass change"), ynorm = 1e-14, exponent_text=L"\times 10^{-14}")
+
+# plot_evolution(["../results/20250505_isolated_mountain_ec/N3M20", "../results/20250505_isolated_mountain_es/N3M20"], ykey="entropy", ynorm=1e-8, exponent_text=L"\times 10^{-8}", xticks=collect(0:7), legend_position=(:left, :bottom))
+
+
 function plot_evolution(
     dirs = joinpath(
         RESULTS_DIR,
@@ -237,6 +272,7 @@ function plot_evolution(
     file = "analysis.dat",
     xkey = "time",
     ykey = "entropy",
+    ynorm = 1.0,
     xlabel = LaTeXString("Time (days)"),
     ylabel = LaTeXString("Normalized entropy change"),
     x_in_days = true,
@@ -250,6 +286,7 @@ function plot_evolution(
     xlims = nothing,
     ylims = nothing,
     legend_position = (:right, :bottom),
+    exponent_text = nothing,
     kwargs...,
 )
 
@@ -292,11 +329,15 @@ function plot_evolution(
             xvalues = data[dir][xkey]
         end
         if relative
-            yvalues = (data[dir][ykey] .- data[dir][ykey][1]) / data[dir][ykey][1]
+            yvalues = ((data[dir][ykey] .- data[dir][ykey][1]) / data[dir][ykey][1]) / ynorm
         else
-            yvalues = data[dir][ykey]
+            yvalues = data[dir][ykey] / ynorm
         end
         lines!(ax, xvalues, yvalues, label = label, linestyle = style, color = color)
+    end
+
+    if !isnothing(exponent_text)
+        Label(f[1, 1, Top()], halign = :left, exponent_text)
     end
 
     axislegend(ax, position = legend_position, font = legendfont)
@@ -348,11 +389,14 @@ function calc_norms(
     (; aux_node_vars) = cache.auxiliary_variables
 
     # Set up data structures
-    l2 = zero(initial_condition(
-              Trixi.get_node_coords(node_coordinates, equations, dg, 1, 1, 1), 
-              t, 
-              TrixiAtmo.get_node_aux_vars(aux_node_vars, equations, dg, 1,1,1), 
-              equations))
+    l2 = zero(
+        initial_condition(
+            Trixi.get_node_coords(node_coordinates, equations, dg, 1, 1, 1),
+            t,
+            TrixiAtmo.get_node_aux_vars(aux_node_vars, equations, dg, 1, 1, 1),
+            equations,
+        ),
+    )
     linf = copy(l2)
     total_volume = zero(real(mesh))
 
@@ -365,7 +409,8 @@ function calc_norms(
 
             # Convert exact solution into contravariant components using geometric
             # information stored in aux vars
-            aux_node = TrixiAtmo.get_node_aux_vars(aux_node_vars, equations, dg, i, j, element)
+            aux_node =
+                TrixiAtmo.get_node_aux_vars(aux_node_vars, equations, dg, i, j, element)
             u_exact = initial_condition(x_node, t, aux_node, equations)
 
             # For the L2 error, integrate with respect to area element stored in aux vars 

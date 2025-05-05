@@ -114,7 +114,14 @@ sol = solve(
 )
 
 l2_error, linf_error = analysis_callback(sol)
-l2_norm, linf_norm = calc_norms(initial_condition_transformed, last(sol.t), mesh, equations, solver, semi.cache)
+l2_norm, linf_norm = calc_norms(
+    initial_condition_transformed,
+    last(sol.t),
+    mesh,
+    equations,
+    solver,
+    semi.cache,
+)
 
 l2_height_error, linf_height_error = l2_error[1], linf_error[1]
 l2_height_norm, linf_height_norm = l2_norm[1], linf_norm[1]
