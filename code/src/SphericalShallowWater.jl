@@ -5,7 +5,7 @@ using CairoMakie, LaTeXStrings, Dates, Printf, CSV
 
 export EXAMPLES_DIR, RESULTS_DIR
 export run_driver, plot_convergence, plot_evolution
-export initial_condition_steady_barotropic_instability
+export initial_condition_well_balanced, initial_condition_steady_barotropic_instability
 
 const EXAMPLES_DIR = TrixiAtmo.examples_dir()
 const RESULTS_DIR = joinpath(dirname(dirname(@__DIR__)), "results")
@@ -298,6 +298,9 @@ function plot_evolution(
     axislegend(ax, position = legend_position, font = legendfont)
     save(joinpath(first(dirs), string(ykey, "_evolution.pdf")), f)
 end
+
+@inline initial_condition_well_balanced(x, t, equations) = SVector(5960.0, 0.0, 0.0, 0.0)
+
 @inline function initial_condition_steady_barotropic_instability(x, t, equations)
     RealT = eltype(x)
     a = sqrt(x[1]^2 + x[2]^2 + x[3]^2)  # radius of the sphere
