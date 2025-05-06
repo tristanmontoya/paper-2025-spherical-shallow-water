@@ -128,7 +128,7 @@ function plot_convergence(
     );
     labels = [LaTeXString("Entropy conservative"), LaTeXString("Entropy stable")],
     styles = [:dash, :solid],
-    colors = [:black, :black],
+    colors = 1:length(labels),
     file = "analysis.dat",
     xkey = "resolution_km",
     ykey = "l2_height_error",
@@ -145,7 +145,7 @@ function plot_convergence(
     legendfont = "CMU Serif",
     xlims = nothing,
     ylims = [1e-12, 1e-2],
-    xticks =[10, 20, 40, 80, 160, 320, 640, 1280],
+    xticks =[10 * 2^i for i in 0:7],
     yticks = LogTicks(-12:-2),
     xminorticks = IntervalsBetween(10),
     xscale = log10,
@@ -205,7 +205,7 @@ function plot_convergence(
             data[dir][ykey] ./ data[dir][ynorm],
             label = label,
             linestyle = style,
-            color = color,
+            color = Makie.wong_colors()[color]
         )
     end
 
@@ -273,7 +273,7 @@ function plot_evolution(
     );
     labels = [LaTeXString("Entropy conservative"), LaTeXString("Entropy stable")],
     styles = [:dash, :solid],
-    colors = [:black, :black],
+    colors = 1:length(labels),
     file = "analysis.dat",
     xkey = "time",
     ykey = "entropy",
@@ -329,7 +329,8 @@ function plot_evolution(
     end
 
     # Draw lines for each directory
-    for (dir, label, style, color) in zip(dirs, labels, styles, colors)
+    for (dir, label, style, color) in zip(reverse(dirs), 
+                                          reverse(labels), reverse(styles), reverse(colors))
         if x_in_days
             xvalues = data[dir][xkey] / SECONDS_PER_DAY
         else
@@ -340,14 +341,15 @@ function plot_evolution(
         else
             yvalues = data[dir][ykey] / ynorm
         end
-        lines!(ax, xvalues, yvalues, label = label, linestyle = style, color = color)
+        lines!(ax, xvalues, yvalues, label = label, linestyle = style,
+            color = Makie.wong_colors()[color])
     end
 
     if !isnothing(exponent_text)
         Label(f[1, 1, Top()], halign = :left, exponent_text)
     end
     if legend
-        axislegend(ax; position = legend_position, font = legendfont, labelsize = legendfontsize)
+        axislegend(ax, reverse(ax.scene.plots), labels; position = legend_position, font = legendfont, labelsize = legendfontsize)
     end
     save(joinpath(first(dirs), string(ykey, "_evolution.pdf")), f)
 end
