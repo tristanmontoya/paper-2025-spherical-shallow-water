@@ -99,12 +99,13 @@ stepsize_callback = StepsizeCallback(cfl = 0.1)
 callbacks =
     CallbackSet(summary_callback, analysis_callback, save_solution, stepsize_callback)
 
+
 ###############################################################################
 # run the simulation
 
 # OrdinaryDiffEq's `solve` method evolves the solution in time and executes the passed 
 # callbacks
-sol = solve(
+integrator = init(
     ode,
     CarpenterKennedy2N54(williamson_condition = false),
     dt = 100.0,
@@ -112,16 +113,22 @@ sol = solve(
     save_everystep = false,
     callback = callbacks,
 )
+try 
+    solve!(integrator)
+catch error
+    println("Crashed at t = ", integrator.t)
+end
 
-l2_error, linf_error = analysis_callback(sol)
+l2_error, linf_error = analysis_callback(integrator.sol)
 l2_norm, linf_norm = calc_norms(
     initial_condition_transformed,
-    last(sol.t),
+    integrator.t,
     mesh,
     equations,
     solver,
     semi.cache,
 )
 
+t_final = integrator.t
 l2_height_error, linf_height_error = l2_error[1], linf_error[1]
 l2_height_norm, linf_height_norm = l2_norm[1], linf_norm[1]

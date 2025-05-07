@@ -31,12 +31,12 @@ function run_driver(
     println("Project directory: ", project_dir)
 
     # Format top-level output file and write headers
-    fmt1 = Printf.Format("%-4d" * "%-4d" * "%-.8g" * "%-25.17e"^5 * "missing  " * "missing" * "\n") # no EOC
-    fmt2 = Printf.Format("%-4d" * "%-4d" * "%-.8g" * "%-25.17e"^5 * "%-9.2f" * "%-9.2f" * "\n")
+    fmt1 = Printf.Format("%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^5 * "missing  " * "missing" * "\n") # no EOC
+    fmt2 = Printf.Format("%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^5 * "%-9.2f" * "%-9.2f" * "\n")
     headers = [
         "N   ",
         "M   ",
-        "end_time",
+        "end_time ",
         "resolution_km",
         "l2_height_error",
         "linf_height_error",
