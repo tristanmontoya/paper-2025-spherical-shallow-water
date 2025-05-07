@@ -31,11 +31,12 @@ function run_driver(
     println("Project directory: ", project_dir)
 
     # Format top-level output file and write headers
-    fmt1 = Printf.Format("%-4d" * "%-4d" * "%-25.17e"^5 * "missing  " * "missing" * "\n") # no EOC
-    fmt2 = Printf.Format("%-4d" * "%-4d" * "%-25.17e"^5 * "%-9.2f" * "%-9.2f" * "\n")
+    fmt1 = Printf.Format("%-4d" * "%-4d" * "%-.8g" * "%-25.17e"^5 * "missing  " * "missing" * "\n") # no EOC
+    fmt2 = Printf.Format("%-4d" * "%-4d" * "%-.8g" * "%-25.17e"^5 * "%-9.2f" * "%-9.2f" * "\n")
     headers = [
         "N   ",
         "M   ",
+        "end_time",
         "resolution_km",
         "l2_height_error",
         "linf_height_error",
@@ -48,8 +49,8 @@ function run_driver(
         println(
             io,
             string(
-                headers[1:2]...,
-                rpad.(headers[3:end-2], 25)...,
+                headers[1:3]...,
+                rpad.(headers[4:end-2], 25)...,
                 headers[end-1],
                 headers[end],
             ),
@@ -59,6 +60,7 @@ function run_driver(
     resolutions = RealT[]
     l2_errors = RealT[]
     linf_errors = RealT[]
+    end_times = RealT[]
 
     cells_per_dimension = initial_cells_per_dimension .* 2 .^ ((1:iterations) .- 1)
 
@@ -76,7 +78,9 @@ function run_driver(
             )
 
             resolution_km = π * EARTH_RADIUS / (2 * M * N * 1000) # scale by 1000 to get km
+            end_time = mod.t_final / SECONDS_PER_DAY
 
+            append!(end_times, end_time)
             append!(resolutions, resolution_km)
             append!(l2_errors, mod.l2_height_error)
             append!(linf_errors, mod.linf_height_error)
@@ -88,6 +92,7 @@ function run_driver(
                         fmt1,
                         N,
                         M,
+                        end_time,
                         resolution_km,
                         l2_height_error,
                         linf_height_error,
@@ -100,6 +105,7 @@ function run_driver(
                         fmt2,
                         N,
                         M,
+                        end_time,
                         resolution_km,
                         mod.l2_height_error,
                         mod.linf_height_error,
