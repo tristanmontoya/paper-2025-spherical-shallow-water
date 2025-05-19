@@ -24,5 +24,9 @@ docs/site/
 # VTK files
 *.vtu
 
+# Plots
+*.png 
+*.pdf
+
 # MacOS files 
 .DS_Store
