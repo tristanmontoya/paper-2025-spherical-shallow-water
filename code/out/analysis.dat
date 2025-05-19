@@ -1,2 +1,0 @@
-#timestep time dt l2_h l2_h_vcon1 l2_h_vcon2 linf_h linf_h_vcon1 linf_h_vcon2 dsdu_ut mass entropy 
-0 0.0 100.0 0.0 0.0 0.0 0.0 0.0 0.0 6.880674776899077e-13 9522.928615676756 4.6255780626252204e8

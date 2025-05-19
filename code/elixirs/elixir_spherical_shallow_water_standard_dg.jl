@@ -96,32 +96,35 @@ callbacks =
 ###############################################################################
 # run the simulation
 
-# OrdinaryDiffEq's `solve` method evolves the solution in time and executes the passed 
-# callbacks
+# Set up integrator
 integrator = init(
     ode,
-    CarpenterKennedy2N54(williamson_condition = false),
+    CarpenterKennedy2N54(williamson_condition = false, 
+                         thread = Trixi.True()),
     dt = 100.0,
     maxiters = 1e8,
     save_everystep = false,
     callback = callbacks,
 )
+
+# get initial residual and save to file for plotting
+du = similar(ode.u0)
+Trixi.rhs!(du, ode.u0, semi, tspan[1])
+save_residual = SaveSolutionCallback(
+    output_directory = output_dir,
+    solution_variables = cons2cons)
+Trixi.save_solution_file(semi, du, save_residual.affect!, integrator, system="residual")
+
+# Try to solve; if it fails, detect crash gracefully. This may not work with threading.
 try 
     solve!(integrator)
 catch error
     println("Crashed at t = ", integrator.t)
 end
 
+# Calculate error norms and normalization factors at end of simulation
 l2_error, linf_error = analysis_callback(integrator.sol)
-l2_norm, linf_norm = calc_norms(
-    initial_condition_transformed,
-    integrator.t,
-    mesh,
-    equations,
-    solver,
-    semi.cache,
-)
 
+# Values for analysis
 t_final = integrator.t
 l2_height_error, linf_height_error = l2_error[1], linf_error[1]
-l2_height_norm, linf_height_norm = l2_norm[1], linf_norm[1]

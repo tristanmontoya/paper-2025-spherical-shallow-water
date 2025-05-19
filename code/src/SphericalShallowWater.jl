@@ -4,11 +4,16 @@ using Trixi, TrixiAtmo, Trixi2Vtk
 using CairoMakie, LaTeXStrings, Dates, Printf, CSV
 
 export EXAMPLES_DIR, RESULTS_DIR
+export surface_flux_ec, surface_flux_es
 export run_driver, plot_convergence, plot_evolution, calc_norms
 export initial_condition_well_balanced, initial_condition_steady_barotropic_instability
 
 const EXAMPLES_DIR = TrixiAtmo.examples_dir()
 const RESULTS_DIR = joinpath(dirname(dirname(@__DIR__)), "results")
+
+const surface_flux_ec = (flux_ec, flux_nonconservative_surface_simplified)
+const surface_flux_es = (FluxPlusDissipation(flux_ec, DissipationLocalLaxFriedrichs()),  
+                         flux_nonconservative_surface_simplified)
 
 function run_driver(
     elixir::AbstractString,
@@ -31,8 +36,8 @@ function run_driver(
     println("Project directory: ", project_dir)
 
     # Format top-level output file and write headers
-    fmt1 = Printf.Format("%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^5 * "missing  " * "missing" * "\n") # no EOC
-    fmt2 = Printf.Format("%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^5 * "%-9.2f" * "%-9.2f" * "\n")
+    fmt1 = Printf.Format("%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^3 * "missing  " * "missing" * "\n") # no EOC
+    fmt2 = Printf.Format("%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^3 * "%-9.2f" * "%-9.2f" * "\n")
     headers = [
         "N   ",
         "M   ",
@@ -40,8 +45,6 @@ function run_driver(
         "resolution_km",
         "l2_height_error",
         "linf_height_error",
-        "l2_height_norm",
-        "linf_height_norm",
         "l2_order ",
         "linf_order",
     ]
@@ -95,9 +98,7 @@ function run_driver(
                         end_time,
                         resolution_km,
                         l2_height_error,
-                        linf_height_error,
-                        l2_height_norm,
-                        linf_height_norm,
+                        linf_height_error
                     )
                 else
                     Printf.format(
@@ -109,8 +110,6 @@ function run_driver(
                         resolution_km,
                         mod.l2_height_error,
                         mod.linf_height_error,
-                        l2_height_norm,
-                        linf_height_norm,
                         log(l2_errors[end] / l2_errors[end-1]) / log(1 / 2),
                         log(linf_errors[end] / linf_errors[end-1]) / log(1 / 2),
                     )
@@ -138,7 +137,7 @@ function plot_convergence(
     file = "analysis.dat",
     xkey = "resolution_km",
     ykey = "l2_height_error",
-    ynorm = "l2_height_norm",
+    ynorm = nothing,
     legend = true,
     xlabel = LaTeXString("Nominal resolution (km)"),
     ylabel = L"Normalized $L^2$ height error",
@@ -205,10 +204,15 @@ function plot_convergence(
 
     # Draw lines for each directory
     for (dir, label, style, color) in zip(dirs, labels, styles, colors)
+        if !isnothing(ynorm)
+            normalization = data[dir][ynorm]
+        else
+            normalization = 1.0
+        end
         scatterlines!(
             ax,
             data[dir][xkey],
-            data[dir][ykey] ./ data[dir][ynorm],
+            data[dir][ykey] ./ normalization,
             label = label,
             linestyle = style,
             color = Makie.wong_colors()[color]
@@ -217,9 +221,14 @@ function plot_convergence(
 
     # Make convergence triangle
     if triangle_bottom
+        if !isnothing(ynorm)
+            normalization = data[dirs[end]][ynorm][end]
+        else
+            normalization = 1.0
+        end
         x0 = data[dirs[end]][xkey][end]
         x1 = x0 * triangle_size
-        y0 = (data[dirs[end]][ykey][end] / data[dirs[end]][ynorm][end]) / triangle_shift
+        y0 = (data[dirs[end]][ykey][end] / normalization) / triangle_shift
         y1 = y0 * triangle_size^triangle_bottom_order
         lines!(ax, [x0, x1, x1, x0], [y0, y0, y1, y0]; color = :black)
 
@@ -237,9 +246,14 @@ function plot_convergence(
     end
 
     if triangle_top
+        if !isnothing(ynorm)
+            normalization = data[dirs[1]][ynorm][end]
+        else
+            normalization = 1.0
+        end
         x0 = data[dirs[1]][xkey][end]
         x1 = x0 * triangle_size
-        y0 = (data[dirs[1]][ykey][end] / data[dirs[end]][ynorm][end]) * triangle_shift
+        y0 = (data[dirs[1]][ykey][end] / normalization) * triangle_shift
         y1 = y0 * triangle_size^triangle_top_order
         lines!(ax, [x0, x1, x0, x0], [y0, y1, y1, y0]; color = :black)
 
@@ -391,61 +405,55 @@ end
     )
 end
 
-# L2 and Linf normalizations based on analytical solution or initial condition
-function calc_norms(
-    initial_condition,
-    t,
-    mesh::P4estMesh{2},
-    equations::TrixiAtmo.AbstractCovariantEquations{2},
-    dg::DGSEM,
-    cache,
-)
+# Specialize the L2 and Linf error calculation
+function Trixi.calc_error_norms(func, u, t, analyzer, mesh::P4estMesh{2},
+                                equations::TrixiAtmo.AbstractCovariantShallowWaterEquations2D,
+                                initial_condition, dg::DGSEM, cache, cache_analysis)
     (; weights) = dg.basis
     (; node_coordinates) = cache.elements
     (; aux_node_vars) = cache.auxiliary_variables
 
     # Set up data structures
-    l2 = zero(
-        initial_condition(
-            Trixi.get_node_coords(node_coordinates, equations, dg, 1, 1, 1),
-            t,
-            TrixiAtmo.get_node_aux_vars(aux_node_vars, equations, dg, 1, 1, 1),
-            equations,
-        ),
-    )
-    linf = copy(l2)
-    total_volume = zero(real(mesh))
+    l2_error = zero(func(Trixi.get_node_vars(u, equations, dg, 1, 1, 1), equations))
+    linf_error = copy(l2_error)
+    l2_normalization = copy(l2_error)
+    linf_normalization = copy(l2_error)
 
     # Iterate over all elements for error calculations
     for element in eachelement(dg, cache)
 
         # Calculate errors at each volume quadrature node
         for j in eachnode(dg), i in eachnode(dg)
-            x_node = Trixi.get_node_coords(node_coordinates, equations, dg, i, j, element)
+            x_node = Trixi.get_node_coords(node_coordinates, equations, dg, i, j,
+                                           element)
 
             # Convert exact solution into contravariant components using geometric
             # information stored in aux vars
-            aux_node =
-                TrixiAtmo.get_node_aux_vars(aux_node_vars, equations, dg, i, j, element)
+            aux_node = TrixiAtmo.get_node_aux_vars(aux_node_vars, equations, dg, i, j, element)
             u_exact = initial_condition(x_node, t, aux_node, equations)
+
+            # Compute the difference as usual
+            u_numerical = Trixi.get_node_vars(u, equations, dg, i, j, element)
+            diff = func(u_exact, equations) - func(u_numerical, equations)
 
             # For the L2 error, integrate with respect to area element stored in aux vars 
             J = TrixiAtmo.area_element(aux_node, equations)
-            l2 += u_exact .^ 2 * (weights[i] * weights[j] * J)
+            l2_error += diff .^ 2 * (weights[i] * weights[j] * J)
 
             # Compute Linf error as usual
-            linf = @. max(linf, abs(u_exact))
+            linf_error = @. max(linf_error, abs(diff))
 
-            # Increment total volume according to the volume element stored in aux vars
-            total_volume += weights[i] * weights[j] * J
+            # Compute normalization
+            linf_normalization = @. max(linf_normalization, abs(func(u_exact, equations)))
+            l2_normalization += func(u_exact, equations).^2 * (weights[i] * weights[j] * J)
         end
     end
 
-    # For L2 error, divide by total volume (to cancel out scaling in Trixi/TrixiAtmo)
-    l2 = @. sqrt(l2 / total_volume)
+    # Normalize both errors 
+    l2_error = @. sqrt(l2_error / l2_normalization)
+    linf_error = @. linf_error / linf_normalization
 
-    return l2, linf
+    return l2_error, linf_error
 end
-
 
 end # module SphericalShallowWater
