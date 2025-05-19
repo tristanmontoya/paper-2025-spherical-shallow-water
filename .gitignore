@@ -21,5 +21,8 @@ docs/site/
 *.h5
 *p4est_data
 
+# VTK files
+*.vtu
+
 # MacOS files 
 .DS_Store
