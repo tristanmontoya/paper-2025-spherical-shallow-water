@@ -11,7 +11,7 @@ initial_condition = initial_condition_unsteady_solid_body_rotation
 auxiliary_field = bottom_topography_unsteady_solid_body_rotation
 polydeg = 3
 cells_per_dimension = 2
-n_saves = 10
+n_saves = 50
 tspan = (0.0, 5.0 * SECONDS_PER_DAY)
 output_dir = "out"
 

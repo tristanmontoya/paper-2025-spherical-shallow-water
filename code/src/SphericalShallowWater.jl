@@ -8,6 +8,9 @@ export surface_flux_ec, surface_flux_es
 export run_driver, plot_convergence, plot_evolution, calc_norms
 export initial_condition_well_balanced, initial_condition_steady_barotropic_instability
 
+const dark_red = RGBf(0.34902, 0.070588, 0.211765)
+const dark_blue = RGBf(0.0, 0.0, 0.34902)
+
 const EXAMPLES_DIR = TrixiAtmo.examples_dir()
 const RESULTS_DIR = joinpath(dirname(dirname(@__DIR__)), "results")
 
@@ -276,11 +279,11 @@ function plot_convergence(
     save(joinpath(first(dirs), "convergence.pdf"), f)
 end
 
-# plot_evolution(["../results/20250505_well_balanced_ec/N3M20", "../results/20250505_well_balanced_es/N3M20"], ykey="linf_h", legend_position=(:left, :top), colors=[:black,:black], relative=false, ynorm=1e-10, exponent_text=L"\times 10^{-10}", ylabel=LaTeXString("Maximum deviation from initial height (m)"), xticks=collect(0:7))
+# plot_evolution(["../results/20250518_well_balanced_ec/N3M20", "../results/20250518_well_balanced_es/N3M20"], ykey="l2_h", legend_position=(:left, :top), relative=false, ylabel=L"Normalized $L^2$ height error", xticks=[0,5,10,15], ynorm=1e-14, exponent_text=L"\times 10^{-14}")
 
-# plot_evolution(["../results/20250505_isolated_mountain_ec/N3M20", "../results/20250505_isolated_mountain_es/N3M20"], legend_position=(:left, :bottom), xticks=collect(0:7), ykey="mass", ylabel=LaTeXString("Normalized mass change"), ynorm = 1e-14, exponent_text=L"\times 10^{-14}")
+# plot_evolution(["../results/20250520_isolated_mountain_ec/N3M20", "../results/20250520_isolated_mountain_es/N3M20"], legend_position=(:left, :top), xticks=[0,5,10,15], ykey="mass", ylabel=LaTeXString("Normalized mass change"), ynorm = 1e-14, exponent_text=L"\times 10^{-14}")
 
-# plot_evolution(["../results/20250505_isolated_mountain_ec/N3M20", "../results/20250505_isolated_mountain_es/N3M20"], ykey="entropy", ynorm=1e-8, exponent_text=L"\times 10^{-8}", xticks=collect(0:7), legend_position=(:left, :bottom))
+# plot_evolution(["../results/20250520_isolated_mountain_ec/N3M20", "../results/20250520_isolated_mountain_es/N3M20"], ykey="entropy", ynorm=1e-8, exponent_text=L"\times 10^{-8}", xticks=[0,5,10,15], legend_position=(:left, :bottom))
 
 function plot_evolution(
     dirs = joinpath(
@@ -291,26 +294,27 @@ function plot_evolution(
         ),
         "N7M4",
     );
-    labels = [LaTeXString("Entropy conservative"), LaTeXString("Entropy stable")],
+    labels = [LaTeXString("EC"), LaTeXString("ES")],
     styles = [:dash, :solid],
     colors = 1:length(labels),
     file = "analysis.dat",
     xkey = "time",
     ykey = "entropy",
     ynorm = 1.0,
-    xlabel = LaTeXString("Time (days)"),
+    xlabel = L"Time $t$ (days)",
     ylabel = LaTeXString("Normalized entropy change"),
     x_in_days = true,
     relative = true,
     font = "CMU Serif",
     size = (350, 350),
     fontsize = 14,
-    legendfontsize = 12,
+    legendfontsize = 14,
     xticklabelfont = "CMU Serif",
     yticklabelfont = "CMU Serif",
     legendfont = "CMU Serif",
     xlims = nothing,
     ylims = nothing,
+    linewidth=1.5,
     legend=true,
     legend_position = (:right, :bottom),
     exponent_text = nothing,
@@ -361,8 +365,8 @@ function plot_evolution(
         else
             yvalues = data[dir][ykey] / ynorm
         end
-        lines!(ax, xvalues, yvalues, label = label, linestyle = style,
-            color = Makie.wong_colors()[color])
+        lines!(ax, xvalues, yvalues, label = label, linestyle = style, linewidth=linewidth,
+            color = Makie.Cycled(color))
     end
 
     if !isnothing(exponent_text)
