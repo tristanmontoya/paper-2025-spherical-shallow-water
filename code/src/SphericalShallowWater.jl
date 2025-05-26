@@ -981,6 +981,7 @@ function plot_barotropic_instability()
         exponent_text = L"\times 10^{-8}",
         xticks = [0, 3, 6, 9, 12],
         xlims = [0, 12],
+        ylims = [-5, 0.25],
     )
 
     # Figure 4e
@@ -996,6 +997,7 @@ function plot_barotropic_instability()
         exponent_text = L"\times 10^{-8}",
         xticks = [0, 3, 6, 9, 12],
         xlims = [0, 12],
+        ylims = [-5, 0.25],
     )
 
     # Figure 4f
@@ -1011,6 +1013,7 @@ function plot_barotropic_instability()
         exponent_text = L"\times 10^{-8}",
         xticks = [0, 3, 6, 9, 12],
         xlims = [0, 12],
+        ylims = [-5, 0.25],
     )
 
 end
