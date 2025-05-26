@@ -6,18 +6,22 @@ using CairoMakie, LaTeXStrings, Dates, Printf, CSV
 export EXAMPLES_DIR, RESULTS_DIR
 export surface_flux_ec, surface_flux_es
 export run_driver, plot_convergence, plot_evolution, calc_norms
+export plot_unsteady_solid_body_rotation,
+    plot_isolated_mountain, plot_barotropic_instability, plot_rossby_haurwitz
 export initial_condition_well_balanced, initial_condition_steady_barotropic_instability
-
-const dark_red = RGBf(0.34902, 0.070588, 0.211765)
-const dark_blue = RGBf(0.0, 0.0, 0.34902)
 
 const EXAMPLES_DIR = TrixiAtmo.examples_dir()
 const RESULTS_DIR = joinpath(dirname(dirname(@__DIR__)), "results")
+const PLOTS_DIR = joinpath(dirname(dirname(@__DIR__)), "plots")
 
 const surface_flux_ec = (flux_ec, flux_nonconservative_surface_simplified)
-const surface_flux_es = (FluxPlusDissipation(flux_ec, DissipationLocalLaxFriedrichs()),  
-                         flux_nonconservative_surface_simplified)
-
+const surface_flux_es = (
+    FluxPlusDissipation(flux_ec, DissipationLocalLaxFriedrichs()),
+    flux_nonconservative_surface_simplified,
+)
+# Extract the 61st saved file:
+# find . -maxdepth 1 -type f -name 'solution_*' -print |   LC_ALL=C sort |   sed -n "61p"
+```
 function run_driver(
     elixir::AbstractString,
     iterations = 1, # number of times to double `cells_per_dimension`
@@ -39,8 +43,12 @@ function run_driver(
     println("Project directory: ", project_dir)
 
     # Format top-level output file and write headers
-    fmt1 = Printf.Format("%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^3 * "missing  " * "missing" * "\n") # no EOC
-    fmt2 = Printf.Format("%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^3 * "%-9.2f" * "%-9.2f" * "\n")
+    fmt1 = Printf.Format(
+        "%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^3 * "missing  " * "missing" * "\n",
+    ) # no EOC
+    fmt2 = Printf.Format(
+        "%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^3 * "%-9.2f" * "%-9.2f" * "\n",
+    )
     headers = [
         "N   ",
         "M   ",
@@ -101,7 +109,7 @@ function run_driver(
                         end_time,
                         resolution_km,
                         l2_height_error,
-                        linf_height_error
+                        linf_height_error,
                     )
                 else
                     Printf.format(
@@ -134,6 +142,8 @@ function plot_convergence(
             "_unsteady_solid_body_rotation",
         ),
     );
+    plots_dir = PLOTS_DIR,
+    plot_name = nothing,
     labels = [LaTeXString("EC"), LaTeXString("ES")],
     styles = [:dash, :solid],
     colors = 1:length(labels),
@@ -154,7 +164,7 @@ function plot_convergence(
     legendfont = "CMU Serif",
     xlims = nothing,
     ylims = [1e-12, 1e-2],
-    xticks =[10 * 2^i for i in 0:7],
+    xticks = [10 * 2^i for i = 0:7],
     yticks = LogTicks(-12:-2),
     xminorgridvisible = false,
     xminorticks = IntervalsBetween(10),
@@ -183,7 +193,7 @@ function plot_convergence(
     )
 
     # Set up figure parameters
-    f = Figure(size = size, fontsize = fontsize, labelfontsize=legendfontsize)
+    f = Figure(size = size, fontsize = fontsize, labelfontsize = legendfontsize)
     ax = Axis(
         f[1, 1];
         xlabel = xlabel,
@@ -221,7 +231,7 @@ function plot_convergence(
             label = label,
             linestyle = style,
             linewidth = linewidth,
-            color = Makie.wong_colors()[color]
+            color = Makie.wong_colors()[color],
         )
     end
 
@@ -275,18 +285,21 @@ function plot_convergence(
             fontsize = legendfontsize,
         )
     end
-    
+
     if legend
-        axislegend(ax; position = legend_position, font = legendfont, labelsize = legendfontsize)
+        axislegend(
+            ax;
+            position = legend_position,
+            font = legendfont,
+            labelsize = legendfontsize,
+        )
     end
-    save(joinpath(first(dirs), "convergence.pdf"), f)
+
+    if isnothing(plot_name)
+        plot_name = "convergence.pdf"
+    end
+    save(joinpath(plots_dir, plot_name), f)
 end
-
-# plot_evolution(["../results/20250518_well_balanced_ec/N3M20", "../results/20250518_well_balanced_es/N3M20"], ykey="l2_h", legend_position=(:left, :top), relative=false, ylabel=L"Normalized $L^2$ height error", xticks=[0,5,10,15], ynorm=1e-14, exponent_text=L"\times 10^{-14}")
-
-# plot_evolution(["../results/20250520_isolated_mountain_ec/N3M20", "../results/20250520_isolated_mountain_es/N3M20"], legend_position=(:left, :top), xticks=[0,5,10,15], ykey="mass", ylabel=LaTeXString("Normalized mass change"), ynorm = 1e-14, exponent_text=L"\times 10^{-14}")
-
-# plot_evolution(["../results/20250520_isolated_mountain_ec/N3M20", "../results/20250520_isolated_mountain_es/N3M20"], ykey="entropy", ynorm=1e-8, exponent_text=L"\times 10^{-8}", xticks=[0,5,10,15], legend_position=(:left, :bottom))
 
 function plot_evolution(
     dirs = joinpath(
@@ -297,6 +310,8 @@ function plot_evolution(
         ),
         "N7M4",
     );
+    plots_dir = PLOTS_DIR,
+    plot_name = nothing,
     labels = [LaTeXString("EC"), LaTeXString("ES")],
     styles = [:dash, :solid],
     colors = 1:length(labels),
@@ -317,10 +332,21 @@ function plot_evolution(
     legendfont = "CMU Serif",
     xlims = nothing,
     ylims = nothing,
-    linewidth=1.5,
-    legend=true,
+    linewidth = 2,
+    legend = true,
     legend_position = (:right, :bottom),
     exponent_text = nothing,
+    vlinepositions = nothing,
+    vlinewidth = 1,
+    vlinelabelfont = "CMU Serif",
+    vlinelabelsize = 12,
+    vlinealigns = [(:right, :bottom), (:right, :bottom)],
+    vlineoffsets = [(-2, 0), (-2, 0)],
+    vlinelabels = [
+        string(LaTeXString("Standard"), "\n", LaTeXString("crash")),
+        string(LaTeXString("EC"), "\n", LaTeXString("crash")),
+    ],
+    vlinecolors = [:black, :black],
     kwargs...,
 )
 
@@ -356,8 +382,8 @@ function plot_evolution(
     end
 
     # Draw lines for each directory
-    for (dir, label, style, color) in zip(reverse(dirs), 
-                                          reverse(labels), reverse(styles), reverse(colors))
+    for (dir, label, style, color) in
+        zip(reverse(dirs), reverse(labels), reverse(styles), reverse(colors))
         if x_in_days
             xvalues = data[dir][xkey] / SECONDS_PER_DAY
         else
@@ -368,17 +394,57 @@ function plot_evolution(
         else
             yvalues = data[dir][ykey] / ynorm
         end
-        lines!(ax, xvalues, yvalues, label = label, linestyle = style, linewidth=linewidth,
-            color = Makie.Cycled(color))
+        lines!(
+            ax,
+            xvalues,
+            yvalues,
+            label = label,
+            linestyle = style,
+            linewidth = linewidth,
+            color = Makie.Cycled(color),
+        )
     end
 
     if !isnothing(exponent_text)
         Label(f[1, 1, Top()], halign = :left, exponent_text)
     end
-    if legend
-        axislegend(ax, reverse(ax.scene.plots), labels; position = legend_position, font = legendfont, labelsize = legendfontsize)
+
+    if !isnothing(vlinepositions)
+        for i in eachindex(vlinepositions)
+            vlines!(ax, [vlinepositions[i]], color = vlinecolors[i], linewidth = vlinewidth)
+        end
+        if !isnothing(vlinelabels) && !isnothing(ylims)
+            for i in eachindex(vlinepositions)
+                text!(
+                    ax,
+                    vlinepositions[i],
+                    ylims[1];
+                    text = vlinelabels[i],
+                    color = vlinecolors[i],
+                    align = vlinealigns[i],
+                    offset = vlineoffsets[i],
+                    font = vlinelabelfont,
+                    fontsize = vlinelabelsize,
+                )
+            end
+        end
     end
-    save(joinpath(first(dirs), string(ykey, "_evolution.pdf")), f)
+
+    if legend
+        axislegend(
+            ax,
+            reverse(ax.scene.plots[1:length(labels)]),
+            labels;
+            position = legend_position,
+            font = legendfont,
+            labelsize = legendfontsize,
+        )
+    end
+
+    if isnothing(plot_name)
+        plot_name = string(ykey, "_evolution.pdf")
+    end
+    save(joinpath(plots_dir, plot_name), f)
 end
 
 @inline initial_condition_well_balanced(x, t, equations) = SVector(5960.0, 0.0, 0.0, 0.0)
@@ -413,9 +479,18 @@ end
 end
 
 # Specialize the L2 and Linf error calculation
-function Trixi.calc_error_norms(func, u, t, analyzer, mesh::P4estMesh{2},
-                                equations::TrixiAtmo.AbstractCovariantShallowWaterEquations2D,
-                                initial_condition, dg::DGSEM, cache, cache_analysis)
+function Trixi.calc_error_norms(
+    func,
+    u,
+    t,
+    analyzer,
+    mesh::P4estMesh{2},
+    equations::TrixiAtmo.AbstractCovariantShallowWaterEquations2D,
+    initial_condition,
+    dg::DGSEM,
+    cache,
+    cache_analysis,
+)
     (; weights) = dg.basis
     (; node_coordinates) = cache.elements
     (; aux_node_vars) = cache.auxiliary_variables
@@ -431,12 +506,12 @@ function Trixi.calc_error_norms(func, u, t, analyzer, mesh::P4estMesh{2},
 
         # Calculate errors at each volume quadrature node
         for j in eachnode(dg), i in eachnode(dg)
-            x_node = Trixi.get_node_coords(node_coordinates, equations, dg, i, j,
-                                           element)
+            x_node = Trixi.get_node_coords(node_coordinates, equations, dg, i, j, element)
 
             # Convert exact solution into contravariant components using geometric
             # information stored in aux vars
-            aux_node = TrixiAtmo.get_node_aux_vars(aux_node_vars, equations, dg, i, j, element)
+            aux_node =
+                TrixiAtmo.get_node_aux_vars(aux_node_vars, equations, dg, i, j, element)
             u_exact = initial_condition(x_node, t, aux_node, equations)
 
             # Compute the difference as usual
@@ -452,7 +527,8 @@ function Trixi.calc_error_norms(func, u, t, analyzer, mesh::P4estMesh{2},
 
             # Compute normalization
             linf_normalization = @. max(linf_normalization, abs(func(u_exact, equations)))
-            l2_normalization += func(u_exact, equations).^2 * (weights[i] * weights[j] * J)
+            l2_normalization +=
+                func(u_exact, equations) .^ 2 * (weights[i] * weights[j] * J)
         end
     end
 
@@ -461,6 +537,194 @@ function Trixi.calc_error_norms(func, u, t, analyzer, mesh::P4estMesh{2},
     linf_error = @. linf_error / linf_normalization
 
     return l2_error, linf_error
+end
+
+function plot_unsteady_solid_body_rotation()
+
+    # Figure 2a
+    plot_convergence(
+        [
+            "../results/20250505_unsteady_solid_body_rotation_N3_ec/",
+            "../results/20250505_unsteady_solid_body_rotation_N3_es/",
+        ],
+        plot_name = "convergence_N3.pdf",
+        triangle_bottom_order = 4,
+        triangle_top_order = 3,
+    )
+    # Figure 2b
+    plot_convergence(
+        [
+            "../results/20250505_unsteady_solid_body_rotation_N4_ec/",
+            "../results/20250505_unsteady_solid_body_rotation_N4_es/",
+        ],
+        plot_name = "convergence_N4.pdf",
+        triangle_bottom_order = 5,
+        triangle_top_order = 5,
+    )
+
+    # Figure 2c
+    plot_convergence(
+        [
+            "../results/20250505_unsteady_solid_body_rotation_p_refine_ec/",
+            "../results/20250505_unsteady_solid_body_rotation_p_refine_es/",
+        ],
+        triangle_bottom = false,
+        triangle_top = false,
+        plot_name = "convergence_p_refine.pdf",
+        xkey = "N",
+        xlabel = L"Polynomial degree $N$",
+        xscale = identity,
+        legend_position = (:left, :bottom),
+    )
+end
+
+function plot_isolated_mountain()
+
+    # Figure 3a
+    plot_evolution(
+        [
+            "../results/20250518_well_balanced_ec/N3M20",
+            "../results/20250518_well_balanced_es/N3M20",
+        ],
+        plot_name = "well_balanced_l2_h_evolution_N3M20.pdf",
+        ykey = "l2_h",
+        legend_position = (:left, :top),
+        relative = false,
+        ylabel = L"Normalized $L^2$ height error",
+        xlims = [0, 15],
+        xticks = [0, 5, 10, 15],
+        ynorm = 1e-14,
+        exponent_text = L"\times 10^{-14}",
+    )
+
+    # Figure 3b
+    plot_evolution(
+        [
+            "../results/20250520_isolated_mountain_ec/N3M20",
+            "../results/20250520_isolated_mountain_es/N3M20",
+        ],
+        plot_name = "isolated_mountain_mass_evolution_N3M20.pdf",
+        legend_position = (:left, :top),
+        xlims = [0, 15],
+        xticks = [0, 5, 10, 15],
+        ykey = "mass",
+        ylabel = LaTeXString("Normalized mass change"),
+        ynorm = 1e-14,
+        exponent_text = L"\times 10^{-14}",
+    )
+
+    # Figure 3c
+    plot_evolution(
+        [
+            "../results/20250520_isolated_mountain_ec/N3M20",
+            "../results/20250520_isolated_mountain_es/N3M20",
+        ],
+        plot_name = "isolated_mountain_entropy_evolution_N3M20.pdf",
+        legend_position = (:left, :bottom),
+        xlims = [0, 15],
+        xticks = [0, 5, 10, 15],
+        ykey = "entropy",
+        ynorm = 1e-8,
+        exponent_text = L"\times 10^{-8}",
+    )
+end
+
+function plot_barotropic_instability()
+
+    # Figure 5b
+    plot_evolution(
+        [
+            "../results/20250525_steady_barotropic_instability_ec_M16/N3M16",
+            "../results/20250525_steady_barotropic_instability_es_M16/N3M16",
+        ],
+        plot_name = "steady_barotropic_instability_l2_h_evolution_N3M16.pdf",
+        ykey = "l2_h",
+        legend_position = (:left, :top),
+        relative = false,
+        ynorm = 1e-3,
+        ylabel = L"Normalized $L^2$ height error",
+        xticks = [0, 3, 6, 9, 12],
+        xlims = [0, 12],
+        ylims = [-1, 12],
+    )
+
+    # Figure 5b
+    plot_evolution(
+        [
+            "../results/20250520_steady_barotropic_instability_ec/N3M32",
+            "../results/20250520_steady_barotropic_instability_es/N3M32",
+        ],
+        plot_name = "steady_barotropic_instability_l2_h_evolution_N3M32.pdf",
+        ykey = "l2_h",
+        legend_position = (:left, :top),
+        relative = false,
+        ynorm = 1e-3,
+        ylabel = L"Normalized $L^2$ height error",
+        xticks = [0, 3, 6, 9, 12],
+        xlims = [0, 12],
+        ylims = [-1, 12],
+    )
+
+    # Figure 5c
+    plot_evolution(
+        [
+            "../results/20250520_steady_barotropic_instability_ec/N3M64",
+            "../results/20250520_steady_barotropic_instability_es/N3M64",
+        ],
+        plot_name = "steady_barotropic_instability_l2_h_evolution_N3M64.pdf",
+        ykey = "l2_h",
+        legend_position = (:left, :top),
+        relative = false,
+        ynorm = 1e-3,
+        ylabel = L"Normalized $L^2$ height error",
+        xticks = [0, 3, 6, 9, 12],
+        xlims = [0, 12],
+        ylims = [-1, 12],
+    )
+end
+
+function plot_rossby_haurwitz()
+    # Figure 6a
+    plot_evolution(
+        [
+            "../results/20250520_rossby_haurwitz_ec_21days/N3M16/",
+            "../results/20250520_rossby_haurwitz_es_21days/N3M16/",
+            "../results/20250520_rossby_haurwitz_standard_21days/N3M16/",
+        ],
+        plot_name = "rossby_haurwitz_entropy_evolution_N3M16.pdf",
+        labels = [LaTeXString("EC"), LaTeXString("ES"), LaTeXString("Standard")],
+        styles = [:dash, :solid, :dot],
+        ykey = "entropy",
+        ynorm = 1e-6,
+        exponent_text = L"\times 10^{-6}",
+        xticks = [0, 7, 14, 21],
+        legend_position = (:right, :top),
+        xlims = [0, 21],
+        ylims = [-4, 4],
+        vlinepositions = [18.71370, 26.0308771], # crash times
+        size = (500, 350),
+    )
+
+    # Figure 6b
+    plot_evolution(
+        [
+            "../results/20250520_rossby_haurwitz_ec_21days_N7/N7M8/",
+            "../results/20250520_rossby_haurwitz_es_21days_N7/N7M8/",
+            "../results/20250520_rossby_haurwitz_standard_21days_N7/N7M8/",
+        ],
+        plot_name = "rossby_haurwitz_entropy_evolution_N7M8.pdf",
+        labels = [LaTeXString("EC"), LaTeXString("ES"), LaTeXString("Standard")],
+        styles = [:dash, :solid, :dot],
+        ykey = "entropy",
+        ynorm = 1e-6,
+        exponent_text = L"\times 10^{-6}",
+        xticks = [0, 7, 14, 21],
+        legend_position = (:right, :top),
+        xlims = [0, 21],
+        ylims = [-4, 4],
+        vlinepositions = [10.91976, 13.92261], # crash times
+        size = (500, 350),
+    )
 end
 
 end # module SphericalShallowWater

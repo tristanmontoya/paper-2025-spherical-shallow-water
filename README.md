@@ -28,24 +28,7 @@ First, make you have [Julia](https://julialang.org/downloads/) installed you hav
 ## Reproducibility instructions
 Here, we describe how to generate the results using the provided drivers, and how to produce the results in the manuscript using the provided Jupyter notebooks. Note that the tests run significantly faster with multithreading enabled (for example, add `--threads 8` to the `julia` command if you want to use eight threads) as this allows for local element-based operations to be performed simultaneously. If using multiple Julia threads, it is [usually best to set the number of BLAS threads to 1](https://carstenbauer.github.io/ThreadPinning.jl/dev/explanations/blas/) (for example, using the `OPENBLAS_NUM_THREADS` environment variable). For all tests, enter the top-level directory and run `julia --project=.` and then load the driver package by entering `using SphericalShallowWater` in the REPL.
 
-## Plots
-
-```julia
-plot_convergence(["../results/20250502_unsteady_solid_body_rotation_N3_ec_5days/", 
-                  "../results/20250502_unsteady_solid_body_rotation_N3_es_5days/"], 
-                  triangle_bottom_order=4, triangle_top_order=3)
-```
-
-```julia
-plot_convergence(["../results/20250502_unsteady_solid_body_rotation_N4_ec_5days/", 
-                  "../results/20250502_unsteady_solid_body_rotation_N4_es_5days/"], 
-                  triangle_bottom_order=5, triangle_top_order=5)
-```
-
-```julia
-plot_convergence(["../results/20250502_unsteady_solid_body_rotation_p_refine_ec_5days/", 
-                  "../results/20250502_unsteady_solid_body_rotation_p_refine_es_5days/"], 
-                  triangle_bottom=false, triangle_top=false, 
-                  xkey="N", xlabel=L"Polynomial degree $N$", xscale=identity, 
-                  legend_position=(:left, :bottom), xminorgridvisible=false)
+To extract the 61st saved file 
+```bash
+find . -maxdepth 1 -type f -name 'solution_*' -print |   LC_ALL=C sort |   sed -n "61p"
 ```

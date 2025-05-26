@@ -105,8 +105,7 @@ callbacks =
 # Set up integrator
 integrator = init(
     ode,
-    CarpenterKennedy2N54(williamson_condition = false, 
-                         thread = Trixi.True()),
+    CarpenterKennedy2N54(williamson_condition = false, thread = Trixi.True()),
     dt = 100.0,
     maxiters = 1e8,
     save_everystep = false,
@@ -116,13 +115,12 @@ integrator = init(
 # get initial residual and save to file for plotting
 du = similar(ode.u0)
 Trixi.rhs!(du, ode.u0, semi, tspan[1])
-save_residual = SaveSolutionCallback(
-    output_directory = output_dir,
-    solution_variables = cons2cons)
-Trixi.save_solution_file(semi, du, save_residual.affect!, integrator, system="residual")
+save_residual =
+    SaveSolutionCallback(output_directory = output_dir, solution_variables = cons2cons)
+Trixi.save_solution_file(semi, du, save_residual.affect!, integrator, system = "residual")
 
 # Try to solve; if it fails, detect crash gracefully. This may not work with threading.
-try 
+try
     solve!(integrator)
 catch error
     println("Crashed at t = ", integrator.t)
