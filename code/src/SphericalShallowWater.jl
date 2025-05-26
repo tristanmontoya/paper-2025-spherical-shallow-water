@@ -6,6 +6,8 @@ using CairoMakie, LaTeXStrings, Dates, Printf, CSV
 export EXAMPLES_DIR, RESULTS_DIR
 export surface_flux_ec, surface_flux_es
 export run_driver, plot_convergence, plot_evolution, calc_norms
+export run_unsteady_solid_body_rotation,
+    run_isolated_mountain, run_barotropic_instability, run_rossby_haurwitz
 export plot_unsteady_solid_body_rotation,
     plot_isolated_mountain, plot_barotropic_instability, plot_rossby_haurwitz
 export initial_condition_well_balanced, initial_condition_steady_barotropic_instability
@@ -19,9 +21,10 @@ const surface_flux_es = (
     FluxPlusDissipation(flux_ec, DissipationLocalLaxFriedrichs()),
     flux_nonconservative_surface_simplified,
 )
-# Extract the 61st saved file:
+
+# If you want to, for example, extract the 61st saved solution in the results file, run this
 # find . -maxdepth 1 -type f -name 'solution_*' -print |   LC_ALL=C sort |   sed -n "61p"
-```
+
 function run_driver(
     elixir::AbstractString,
     iterations = 1, # number of times to double `cells_per_dimension`
@@ -539,15 +542,295 @@ function Trixi.calc_error_norms(
     return l2_error, linf_error
 end
 
-function plot_unsteady_solid_body_rotation()
+function run_unsteady_solid_body_rotation()
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        5,
+        polydeg = 3,
+        initial_condition = initial_condition_unsteady_solid_body_rotation,
+        auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
+        surface_flux = surface_flux_ec,
+        initial_cells_per_dimension = 4,
+        identifier = "_ec_N3",
+        interval = 50,
+        tspan = (0.0, 5.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 50,
+    )
 
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        5,
+        polydeg = 3,
+        initial_condition = initial_condition_unsteady_solid_body_rotation,
+        auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
+        surface_flux = surface_flux_es,
+        initial_cells_per_dimension = 4,
+        identifier = "_es_N3",
+        interval = 50,
+        tspan = (0.0, 5.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 50,
+    )
+
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        5,
+        polydeg = 4,
+        initial_condition = initial_condition_unsteady_solid_body_rotation,
+        auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
+        surface_flux = surface_flux_ec,
+        initial_cells_per_dimension = 4,
+        identifier = "_ec_N4",
+        interval = 50,
+        tspan = (0.0, 5.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 50,
+    )
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        5,
+        polydeg = 4,
+        initial_condition = initial_condition_unsteady_solid_body_rotation,
+        auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
+        surface_flux = surface_flux_es,
+        initial_cells_per_dimension = 4,
+        identifier = "_es_N4",
+        interval = 50,
+        tspan = (0.0, 5.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 50,
+    )
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        1,
+        polydeg = 2:10,
+        initial_condition = initial_condition_unsteady_solid_body_rotation,
+        auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
+        surface_flux = surface_flux_ec,
+        initial_cells_per_dimension = 4,
+        identifier = "ec_p_refine",
+        interval = 50,
+        tspan = (0.0, 5.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 50,
+    )
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        1,
+        polydeg = 2:10,
+        initial_condition = initial_condition_unsteady_solid_body_rotation,
+        auxiliary_field = nothing,
+        surface_flux = surface_flux_es,
+        initial_cells_per_dimension = 4,
+        identifier = "es_p_refine",
+        interval = 50,
+        tspan = (0.0, 5.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 50,
+    )
+end
+
+
+function run_isolated_mountain()
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        1,
+        polydeg = 3,
+        initial_condition = initial_condition_well_balanced,
+        auxiliary_field = bottom_topography_isolated_mountain,
+        surface_flux = surface_flux_ec,
+        initial_cells_per_dimension = 20,
+        identifier = "_ec",
+        interval = 50,
+        tspan = (0.0, 15.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 150,
+    )
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        1,
+        polydeg = 3,
+        initial_condition = initial_condition_well_balanced,
+        auxiliary_field = bottom_topography_isolated_mountain,
+        surface_flux = surface_flux_es,
+        initial_cells_per_dimension = 20,
+        identifier = "_es",
+        interval = 50,
+        tspan = (0.0, 15.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 150,
+    )
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        1,
+        polydeg = 3,
+        initial_condition = initial_condition_isolated_mountain,
+        auxiliary_field = bottom_topography_isolated_mountain,
+        surface_flux = surface_flux_ec,
+        initial_cells_per_dimension = 20,
+        identifier = "_ec",
+        interval = 50,
+        tspan = (0.0, 15.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 150,
+    )
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        1,
+        polydeg = 3,
+        initial_condition = initial_condition_isolated_mountain,
+        auxiliary_field = bottom_topography_isolated_mountain,
+        surface_flux = surface_flux_es,
+        initial_cells_per_dimension = 20,
+        identifier = "_es",
+        interval = 50,
+        tspan = (0.0, 15.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 150,
+    )
+end
+
+function run_barotropic_instability()
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        3,
+        polydeg = 3,
+        initial_condition = initial_condition_steady_barotropic_instability,
+        auxiliary_field = nothing,
+        surface_flux = surface_flux_ec,
+        initial_cells_per_dimension = 16,
+        identifier = "_ec",
+        interval = 50,
+        tspan = (0.0, 12.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 120,
+    )
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        3,
+        polydeg = 3,
+        initial_condition = initial_condition_steady_barotropic_instability,
+        auxiliary_field = nothing,
+        surface_flux = surface_flux_es,
+        initial_cells_per_dimension = 16,
+        identifier = "_es",
+        interval = 50,
+        tspan = (0.0, 12.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 120,
+    )
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        3,
+        polydeg = 3,
+        initial_condition = initial_condition_barotropic_instability,
+        auxiliary_field = nothing,
+        surface_flux = surface_flux_ec,
+        initial_cells_per_dimension = 16,
+        identifier = "_ec",
+        interval = 50,
+        tspan = (0.0, 12.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 120,
+    )
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        3,
+        polydeg = 3,
+        initial_condition = initial_condition_barotropic_instability,
+        auxiliary_field = nothing,
+        surface_flux = surface_flux_es,
+        initial_cells_per_dimension = 16,
+        identifier = "_es",
+        interval = 50,
+        tspan = (0.0, 12.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 120,
+    )
+end
+
+function run_rossby_haurwitz()
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        1,
+        polydeg = 3,
+        initial_condition = initial_condition_rossby_haurwitz,
+        auxiliary_field = nothing,
+        surface_flux = surface_flux_ec,
+        initial_cells_per_dimension = 16,
+        identifier = "_ec_N3",
+        interval = 50,
+        tspan = (0.0, 28.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 280,
+    )
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        1,
+        polydeg = 3,
+        initial_condition = initial_condition_rossby_haurwitz,
+        auxiliary_field = nothing,
+        surface_flux = surface_flux_es,
+        initial_cells_per_dimension = 16,
+        identifier = "_es_N3",
+        interval = 50,
+        tspan = (0.0, 28.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 280,
+    )
+
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        1,
+        polydeg = 7,
+        initial_condition = initial_condition_rossby_haurwitz,
+        auxiliary_field = nothing,
+        surface_flux = surface_flux_ec,
+        initial_cells_per_dimension = 8,
+        identifier = "_ec_N7",
+        interval = 50,
+        tspan = (0.0, 28.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 280,
+    )
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water.jl",
+        1,
+        polydeg = 7,
+        initial_condition = initial_condition_rossby_haurwitz,
+        auxiliary_field = nothing,
+        surface_flux = surface_flux_es,
+        initial_cells_per_dimension = 8,
+        identifier = "_es_N7",
+        interval = 50,
+        tspan = (0.0, 28.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 280,
+    )
+end
+
+function plot_unsteady_solid_body_rotation()
     # Figure 2a
     plot_convergence(
         [
             "../results/20250505_unsteady_solid_body_rotation_N3_ec/",
             "../results/20250505_unsteady_solid_body_rotation_N3_es/",
         ],
-        plot_name = "convergence_N3.pdf",
+        plot_name = "unsteady_solid_body_rotation_convergence_N3.pdf",
         triangle_bottom_order = 4,
         triangle_top_order = 3,
     )
@@ -557,7 +840,7 @@ function plot_unsteady_solid_body_rotation()
             "../results/20250505_unsteady_solid_body_rotation_N4_ec/",
             "../results/20250505_unsteady_solid_body_rotation_N4_es/",
         ],
-        plot_name = "convergence_N4.pdf",
+        plot_name = "unsteady_solid_body_rotation_convergence_N4.pdf",
         triangle_bottom_order = 5,
         triangle_top_order = 5,
     )
@@ -570,16 +853,16 @@ function plot_unsteady_solid_body_rotation()
         ],
         triangle_bottom = false,
         triangle_top = false,
-        plot_name = "convergence_p_refine.pdf",
+        plot_name = "unsteady_solid_body_rotation_p_refine_M4.pdf",
         xkey = "N",
         xlabel = L"Polynomial degree $N$",
+        xticks = collect(2:10),
         xscale = identity,
         legend_position = (:left, :bottom),
     )
 end
 
 function plot_isolated_mountain()
-
     # Figure 3a
     plot_evolution(
         [
@@ -630,8 +913,7 @@ function plot_isolated_mountain()
 end
 
 function plot_barotropic_instability()
-
-    # Figure 5b
+    # Figure 4a
     plot_evolution(
         [
             "../results/20250525_steady_barotropic_instability_ec_M16/N3M16",
@@ -642,13 +924,14 @@ function plot_barotropic_instability()
         legend_position = (:left, :top),
         relative = false,
         ynorm = 1e-3,
+        exponent_text = L"\times 10^{-3}",
         ylabel = L"Normalized $L^2$ height error",
         xticks = [0, 3, 6, 9, 12],
         xlims = [0, 12],
         ylims = [-1, 12],
     )
 
-    # Figure 5b
+    # Figure 4b
     plot_evolution(
         [
             "../results/20250520_steady_barotropic_instability_ec/N3M32",
@@ -659,13 +942,14 @@ function plot_barotropic_instability()
         legend_position = (:left, :top),
         relative = false,
         ynorm = 1e-3,
+        exponent_text = L"\times 10^{-3}",
         ylabel = L"Normalized $L^2$ height error",
         xticks = [0, 3, 6, 9, 12],
         xlims = [0, 12],
         ylims = [-1, 12],
     )
 
-    # Figure 5c
+    # Figure 4c
     plot_evolution(
         [
             "../results/20250520_steady_barotropic_instability_ec/N3M64",
@@ -676,19 +960,67 @@ function plot_barotropic_instability()
         legend_position = (:left, :top),
         relative = false,
         ynorm = 1e-3,
+        exponent_text = L"\times 10^{-3}",
         ylabel = L"Normalized $L^2$ height error",
         xticks = [0, 3, 6, 9, 12],
         xlims = [0, 12],
         ylims = [-1, 12],
     )
+
+
+    # Figure 4d
+    plot_evolution(
+        [
+            "../results/20250525_steady_barotropic_instability_ec_M16/N3M16",
+            "../results/20250525_steady_barotropic_instability_es_M16/N3M16",
+        ],
+        plot_name = "steady_barotropic_instability_entropy_evolution_N3M16.pdf",
+        legend_position = (:left, :bottom),
+        ykey = "entropy",
+        ynorm = 1e-5,
+        exponent_text = L"\times 10^{-8}",
+        xticks = [0, 3, 6, 9, 12],
+        xlims = [0, 12],
+    )
+
+    # Figure 4e
+    plot_evolution(
+        [
+            "../results/20250520_steady_barotropic_instability_ec/N3M32",
+            "../results/20250520_steady_barotropic_instability_es/N3M32",
+        ],
+        plot_name = "steady_barotropic_instability_entropy_evolution_N3M32.pdf",
+        legend_position = (:left, :bottom),
+        ykey = "entropy",
+        ynorm = 1e-5,
+        exponent_text = L"\times 10^{-8}",
+        xticks = [0, 3, 6, 9, 12],
+        xlims = [0, 12],
+    )
+
+    # Figure 4f
+    plot_evolution(
+        [
+            "../results/20250520_steady_barotropic_instability_ec/N3M64",
+            "../results/20250520_steady_barotropic_instability_es/N3M64",
+        ],
+        plot_name = "steady_barotropic_instability_entropy_evolution_N3M64.pdf",
+        legend_position = (:left, :bottom),
+        ykey = "entropy",
+        ynorm = 1e-5,
+        exponent_text = L"\times 10^{-8}",
+        xticks = [0, 3, 6, 9, 12],
+        xlims = [0, 12],
+    )
+
 end
 
 function plot_rossby_haurwitz()
-    # Figure 6a
+    # Figure 7a
     plot_evolution(
         [
-            "../results/20250520_rossby_haurwitz_ec_21days/N3M16/",
-            "../results/20250520_rossby_haurwitz_es_21days/N3M16/",
+            "../results/20250526_rossby_haurwitz_ec_28days/N3M16/",
+            "../results/20250526_rossby_haurwitz_es_28days/N3M16/",
             "../results/20250520_rossby_haurwitz_standard_21days/N3M16/",
         ],
         plot_name = "rossby_haurwitz_entropy_evolution_N3M16.pdf",
@@ -697,19 +1029,19 @@ function plot_rossby_haurwitz()
         ykey = "entropy",
         ynorm = 1e-6,
         exponent_text = L"\times 10^{-6}",
-        xticks = [0, 7, 14, 21],
+        xticks = [0, 7, 14, 21, 28],
         legend_position = (:right, :top),
-        xlims = [0, 21],
-        ylims = [-4, 4],
-        vlinepositions = [18.71370, 26.0308771], # crash times
+        xlims = [0, 28],
+        ylims = [-5, 5],
+        vlinepositions = [18.71370, 26.03088], # crash times
         size = (500, 350),
     )
 
-    # Figure 6b
+    # Figure 7b
     plot_evolution(
         [
             "../results/20250520_rossby_haurwitz_ec_21days_N7/N7M8/",
-            "../results/20250520_rossby_haurwitz_es_21days_N7/N7M8/",
+            "../results/20250526_rossby_haurwitz_es_28day_N7/N7M8/",
             "../results/20250520_rossby_haurwitz_standard_21days_N7/N7M8/",
         ],
         plot_name = "rossby_haurwitz_entropy_evolution_N7M8.pdf",
@@ -718,10 +1050,10 @@ function plot_rossby_haurwitz()
         ykey = "entropy",
         ynorm = 1e-6,
         exponent_text = L"\times 10^{-6}",
-        xticks = [0, 7, 14, 21],
+        xticks = [0, 7, 14, 21, 28],
         legend_position = (:right, :top),
-        xlims = [0, 21],
-        ylims = [-4, 4],
+        xlims = [0, 28],
+        ylims = [-5, 5],
         vlinepositions = [10.91976, 13.92261], # crash times
         size = (500, 350),
     )
