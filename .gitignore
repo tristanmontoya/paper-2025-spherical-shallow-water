@@ -28,5 +28,8 @@ docs/site/
 *.png 
 *.pdf
 
+*.pvsm
+*.pvd
+
 # MacOS files 
 .DS_Store
