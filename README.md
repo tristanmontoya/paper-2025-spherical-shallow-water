@@ -27,3 +27,11 @@ First, make you have [Julia](https://julialang.org/downloads/) installed you hav
 
 ## Reproducibility instructions
 Here, we describe how to generate the results using the provided drivers, and how to produce the results in the manuscript using the provided Jupyter notebooks. Note that the tests run significantly faster with multithreading enabled (for example, add `--threads 8` to the `julia` command if you want to use eight threads) as this allows for local element-based operations to be performed simultaneously. If using multiple Julia threads, it is [usually best to set the number of BLAS threads to 1](https://carstenbauer.github.io/ThreadPinning.jl/dev/explanations/blas/) (for example, using the `OPENBLAS_NUM_THREADS` environment variable). For all tests, enter the top-level directory and run `julia --project=.` and then load the driver package by entering `using SphericalShallowWater` in the REPL.
+
+## Miscellaneous tips 
+
+If you want to, for example, extract the 61st saved solution in the results file, run this:
+```bash
+find . -maxdepth 1 -type f -name 'solution_*' -print | LC_ALL=C sort | sed -n "61p"
+```
+

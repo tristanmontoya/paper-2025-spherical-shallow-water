@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VTKFile type="Collection" version="1.0" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+  <Collection>
+    <DataSet timestep="0.0" part="0" file="solution_000000000.vtu"/>
+    <DataSet timestep="8640.0" part="0" file="solution_000000525.vtu"/>
+    <DataSet timestep="17280.0" part="0" file="solution_000001051.vtu"/>
+    <DataSet timestep="25920.0" part="0" file="solution_000001576.vtu"/>
+    <DataSet timestep="34560.0" part="0" file="solution_000002102.vtu"/>
+    <DataSet timestep="43200.0" part="0" file="solution_000002627.vtu"/>
+    <DataSet timestep="51840.0" part="0" file="solution_000003153.vtu"/>
+    <DataSet timestep="60480.0" part="0" file="solution_000003679.vtu"/>
+    <DataSet timestep="69120.0" part="0" file="solution_000004204.vtu"/>
+    <DataSet timestep="77760.0" part="0" file="solution_000004730.vtu"/>
+    <DataSet timestep="86400.0" part="0" file="solution_000005255.vtu"/>
+    <DataSet timestep="95040.0" part="0" file="solution_000005781.vtu"/>
+    <DataSet timestep="103680.0" part="0" file="solution_000006307.vtu"/>
+    <DataSet timestep="112320.0" part="0" file="solution_000006832.vtu"/>
+    <DataSet timestep="120960.0" part="0" file="solution_000007358.vtu"/>
+    <DataSet timestep="129600.0" part="0" file="solution_000007883.vtu"/>
+    <DataSet timestep="138240.0" part="0" file="solution_000008409.vtu"/>
+    <DataSet timestep="146880.0" part="0" file="solution_000008935.vtu"/>
+    <DataSet timestep="155520.0" part="0" file="solution_000009460.vtu"/>
+    <DataSet timestep="164160.0" part="0" file="solution_000009986.vtu"/>
+    <DataSet timestep="172800.0" part="0" file="solution_000010511.vtu"/>
+    <DataSet timestep="181440.0" part="0" file="solution_000011037.vtu"/>
+    <DataSet timestep="190080.0" part="0" file="solution_000011563.vtu"/>
+    <DataSet timestep="198720.0" part="0" file="solution_000012088.vtu"/>
+    <DataSet timestep="207360.0" part="0" file="solution_000012614.vtu"/>
+    <DataSet timestep="216000.0" part="0" file="solution_000013139.vtu"/>
+    <DataSet timestep="224640.0" part="0" file="solution_000013665.vtu"/>
+    <DataSet timestep="233280.0" part="0" file="solution_000014191.vtu"/>
+    <DataSet timestep="241920.0" part="0" file="solution_000014716.vtu"/>
+    <DataSet timestep="250560.0" part="0" file="solution_000015242.vtu"/>
+    <DataSet timestep="259200.0" part="0" file="solution_000015767.vtu"/>
+    <DataSet timestep="267840.0" part="0" file="solution_000016293.vtu"/>
+    <DataSet timestep="276480.0" part="0" file="solution_000016819.vtu"/>
+    <DataSet timestep="285120.0" part="0" file="solution_000017344.vtu"/>
+    <DataSet timestep="293760.0" part="0" file="solution_000017870.vtu"/>
+    <DataSet timestep="302400.0" part="0" file="solution_000018395.vtu"/>
+    <DataSet timestep="311040.0" part="0" file="solution_000018921.vtu"/>
+    <DataSet timestep="319680.0" part="0" file="solution_000019447.vtu"/>
+    <DataSet timestep="328320.0" part="0" file="solution_000019972.vtu"/>
+    <DataSet timestep="336960.0" part="0" file="solution_000020498.vtu"/>
+    <DataSet timestep="345600.0" part="0" file="solution_000021023.vtu"/>
+    <DataSet timestep="354240.0" part="0" file="solution_000021549.vtu"/>
+    <DataSet timestep="362880.0" part="0" file="solution_000022075.vtu"/>
+    <DataSet timestep="371520.0" part="0" file="solution_000022600.vtu"/>
+    <DataSet timestep="380160.0" part="0" file="solution_000023126.vtu"/>
+    <DataSet timestep="388800.0" part="0" file="solution_000023651.vtu"/>
+    <DataSet timestep="397440.0" part="0" file="solution_000024177.vtu"/>
+    <DataSet timestep="406080.0" part="0" file="solution_000024703.vtu"/>
+    <DataSet timestep="414720.0" part="0" file="solution_000025228.vtu"/>
+    <DataSet timestep="423360.0" part="0" file="solution_000025754.vtu"/>
+    <DataSet timestep="432000.0" part="0" file="solution_000026279.vtu"/>
+    <DataSet timestep="0.0" part="0" file="solution_residual_000000000.vtu"/>
+  </Collection>
+</VTKFile>

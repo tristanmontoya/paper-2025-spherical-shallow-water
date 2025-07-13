@@ -1,5 +1,6 @@
 ###############################################################################
-# Standard elixir for the spherical shallow water equations
+# Standard elixir for the covariant shallow water equations on the sphere using
+# entropy-conservative entropy-stable schemes
 ###############################################################################
 
 using OrdinaryDiffEq, Trixi, TrixiAtmo
@@ -81,6 +82,7 @@ analysis_callback = AnalysisCallback(
     interval = 50,
     save_analysis = true,
     output_directory = output_dir,
+    extra_analysis_errors = (:l2_error_primitive, :linf_error_primitive),
     extra_analysis_integrals = (mass, entropy),
 )
 
@@ -126,9 +128,15 @@ catch error
     println("Crashed at t = ", integrator.t)
 end
 
-# Calculate error norms and normalization factors at end of simulation
+# Calculate error norms at end of simulation
 l2_error, linf_error = analysis_callback(integrator.sol)
-
-# Values for analysis
+l2_error_prim, linf_error_prim = Trixi.calc_error_norms(
+    cons2prim,
+    integrator.t,
+    analysis_callback.analyzer,
+    semi,
+    cache_analysis,
+)
 t_final = integrator.t
-l2_height_error, linf_height_error = l2_error[1], linf_error[1]
+l2_depth_error, linf_depth_error = l2_error[1], linf_error[1]
+l2_height_error, linf_height_error = l2_error_prim[1], linf_error_prim[1]

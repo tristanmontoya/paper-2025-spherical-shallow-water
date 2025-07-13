@@ -22,8 +22,8 @@ const surface_flux_es = (
     flux_nonconservative_surface_simplified,
 )
 
-# If you want to, for example, extract the 61st saved solution in the results file, run this
-# find . -maxdepth 1 -type f -name 'solution_*' -print |   LC_ALL=C sort |   sed -n "61p"
+export run_isolated_mountain_cartesian
+include("cartesian.jl")
 
 function run_driver(
     elixir::AbstractString,
@@ -47,16 +47,18 @@ function run_driver(
 
     # Format top-level output file and write headers
     fmt1 = Printf.Format(
-        "%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^3 * "missing  " * "missing" * "\n",
+        "%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^5 * "missing  " * "missing" * "\n",
     ) # no EOC
     fmt2 = Printf.Format(
-        "%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^3 * "%-9.2f" * "%-9.2f" * "\n",
+        "%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^5 * "%-9.2f" * "%-9.2f" * "\n",
     )
     headers = [
         "N   ",
         "M   ",
         "end_time ",
         "resolution_km",
+        "l2_depth_error",
+        "linf_depth_error",
         "l2_height_error",
         "linf_height_error",
         "l2_order ",
@@ -111,6 +113,8 @@ function run_driver(
                         M,
                         end_time,
                         resolution_km,
+                        mod.l2_depth_error,
+                        mod.linf_depth_error,
                         l2_height_error,
                         linf_height_error,
                     )
@@ -122,6 +126,8 @@ function run_driver(
                         M,
                         end_time,
                         resolution_km,
+                        mod.l2_depth_error,
+                        mod.linf_depth_error,
                         mod.l2_height_error,
                         mod.linf_height_error,
                         log(l2_errors[end] / l2_errors[end-1]) / log(1 / 2),
@@ -450,7 +456,11 @@ function plot_evolution(
     save(joinpath(plots_dir, plot_name), f)
 end
 
-@inline initial_condition_well_balanced(x, t, equations) = SVector(5960.0, 0.0, 0.0, 0.0)
+@inline initial_condition_well_balanced(
+    x,
+    t,
+    equations::TrixiAtmo.AbstractCovariantShallowWaterEquations2D,
+) = SVector(5960.0, 0.0, 0.0, 0.0)
 
 @inline function initial_condition_steady_barotropic_instability(x, t, equations)
     RealT = eltype(x)
@@ -499,7 +509,13 @@ function Trixi.calc_error_norms(
     (; aux_node_vars) = cache.auxiliary_variables
 
     # Set up data structures
-    l2_error = zero(func(Trixi.get_node_vars(u, equations, dg, 1, 1, 1), equations))
+    l2_error = zero(
+        func(
+            Trixi.get_node_vars(u, equations, dg, 1, 1, 1),
+            TrixiAtmo.get_node_aux_vars(aux_node_vars, equations, dg, 1, 1, 1),
+            equations,
+        ),
+    )
     linf_error = copy(l2_error)
     l2_normalization = copy(l2_error)
     linf_normalization = copy(l2_error)
@@ -518,8 +534,9 @@ function Trixi.calc_error_norms(
             u_exact = initial_condition(x_node, t, aux_node, equations)
 
             # Compute the difference as usual
+            func_exact = func(u_exact, aux_node, equations)
             u_numerical = Trixi.get_node_vars(u, equations, dg, i, j, element)
-            diff = func(u_exact, equations) - func(u_numerical, equations)
+            diff = func(u_numerical, aux_node, equations) - func_exact
 
             # For the L2 error, integrate with respect to area element stored in aux vars 
             J = TrixiAtmo.area_element(aux_node, equations)
@@ -529,9 +546,8 @@ function Trixi.calc_error_norms(
             linf_error = @. max(linf_error, abs(diff))
 
             # Compute normalization
-            linf_normalization = @. max(linf_normalization, abs(func(u_exact, equations)))
-            l2_normalization +=
-                func(u_exact, equations) .^ 2 * (weights[i] * weights[j] * J)
+            linf_normalization = @. max(linf_normalization, abs(func_exact))
+            l2_normalization += func_exact .^ 2 * (weights[i] * weights[j] * J)
         end
     end
 
@@ -572,7 +588,6 @@ function run_unsteady_solid_body_rotation()
         cfl = 0.1,
         n_saves = 50,
     )
-
 
     run_driver(
         "elixirs/elixir_spherical_shallow_water.jl",
@@ -790,7 +805,6 @@ function run_rossby_haurwitz()
         cfl = 0.1,
         n_saves = 280,
     )
-
 
     run_driver(
         "elixirs/elixir_spherical_shallow_water.jl",

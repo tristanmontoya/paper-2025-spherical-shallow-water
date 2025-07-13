@@ -1,82 +1,101 @@
-###############################################################################
-# Standard elixir for the covariant shallow water equations using standard DG 
-###############################################################################
 
-using OrdinaryDiffEq, Trixi, TrixiAtmo
+using OrdinaryDiffEq
+using Trixi
+using TrixiAtmo
+
+###############################################################################
+# Entropy conservation for the spherical shallow water equations in Cartesian
+# form obtained through the projection of the momentum onto the divergence-free
+# tangential contravariant vectors
 
 ###############################################################################
 # Parameters
 
 initial_condition = initial_condition_unsteady_solid_body_rotation
-auxiliary_field = bottom_topography_unsteady_solid_body_rotation
 polydeg = 3
 cells_per_dimension = 2
 n_saves = 50
 tspan = (0.0, 5.0 * SECONDS_PER_DAY)
 output_dir = "out"
-
-###############################################################################
-# Custom outputs
-mass = (u, aux, equations) -> waterheight(u, equations)
-Trixi.pretty_form_utf(::typeof(mass)) = "mass"
-Trixi.pretty_form_ascii(::typeof(mass)) = "mass"
-
 ###############################################################################
 # Spatial discretization
-
-mesh = P4estMeshCubedSphere2D(
-    cells_per_dimension,
-    EARTH_RADIUS,
-    polydeg = polydeg,
-    element_local_mapping = true,
+equations = ShallowWaterEquations3D(
+    gravity = EARTH_GRAVITATIONAL_ACCELERATION,
+    rotation_rate = EARTH_ROTATION_RATE,
 )
 
-equations = CovariantShallowWaterEquations2D(
-    EARTH_GRAVITATIONAL_ACCELERATION,
-    EARTH_ROTATION_RATE,
-    global_coordinate_system = GlobalCartesianCoordinates(),
-)
+# Create DG solver with polynomial degree = 3 and Wintemeyer et al.'s flux as surface flux
+volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
+surface_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
 
-# Create DG solver with polynomial degree = polydeg
+# For provably entropy-stable surface fluxes, use
+# surface_flux = (FluxPlusDissipation(flux_wintermeyer_etal, DissipationLaxFriedrichsEntropyVariables()), 
+#                 flux_nonconservative_wintermeyer_etal)
+
 solver = DGSEM(
     polydeg = polydeg,
-    surface_flux = flux_lax_friedrichs,
-    volume_integral = VolumeIntegralWeakForm(),
+    surface_flux = surface_flux,
+    volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
 )
 
 # Transform the initial condition to the proper set of conservative variables
 initial_condition_transformed = transform_initial_condition(initial_condition, equations)
 
-# A semidiscretization collects data structures and functions for the spatial 
-# discretization. Here, we pass in the additional keyword argument "auxiliary_field" to 
-# specify the bottom topography.
+mesh = P4estMeshCubedSphere2D(
+    cells_per_dimension[1],
+    EARTH_RADIUS,
+    polydeg = polydeg,
+    initial_refinement_level = 0,
+)
+
+# A semidiscretization collects data structures and functions for the spatial discretization
 semi = SemidiscretizationHyperbolic(
     mesh,
     equations,
     initial_condition_transformed,
     solver,
-    source_terms = source_terms_geometric_coriolis,
+    metric_terms = MetricTermsInvariantCurl(),
+    source_terms = source_terms_coriolis_lagrange_multiplier,
 )
 
 ###############################################################################
 # ODE solvers, callbacks etc.
 
-# Create ODE problem with time span from 0 to T
+# Create ODE problem with time span from 0.0 to π
 ode = semidiscretize(semi, tspan)
 
-# At the beginning of the main loop, the SummaryCallback prints a summary of the simulation 
-# setup and resets the timers
+# Clean the initial condition
+for element in eachelement(solver, semi.cache)
+    for j in eachnode(solver), i in eachnode(solver)
+        u0 = Trixi.wrap_array(ode.u0, semi)
+
+        contravariant_normal_vector = Trixi.get_contravariant_vector(
+            3,
+            semi.cache.elements.contravariant_vectors,
+            i,
+            j,
+            element,
+        )
+        clean_solution_lagrange_multiplier!(
+            u0[:, i, j, element],
+            equations,
+            contravariant_normal_vector,
+        )
+    end
+end
+
+# At the beginning of the main loop, the SummaryCallback prints a summary of the simulation setup
+# and resets the timers
 summary_callback = SummaryCallback()
 
-# The AnalysisCallback allows to analyse the solution in regular intervals and prints the
-# results. Note that entropy should be conserved at the semi-discrete level.
+# The AnalysisCallback allows to analyse the solution in regular intervals and prints the results
 analysis_callback = AnalysisCallback(
     semi,
-    interval = 50,
+    interval = 10,
     save_analysis = true,
-    output_directory = output_dir,
     extra_analysis_errors = (:l2_error_primitive, :linf_error_primitive),
-    extra_analysis_integrals = (mass, entropy),
+    extra_analysis_integrals = (waterheight, energy_total),
+    analysis_polydeg = polydeg,
 )
 
 # The SaveSolutionCallback allows to save the solution to a file in regular intervals
@@ -87,10 +106,9 @@ save_solution = SaveSolutionCallback(
 )
 
 # The StepsizeCallback handles the re-calculation of the maximum Δt after each time step
-stepsize_callback = StepsizeCallback(cfl = 0.1)
+stepsize_callback = StepsizeCallback(cfl = 0.7)
 
-# Create a CallbackSet to collect all callbacks such that they can be passed to the ODE 
-# solver
+# Create a CallbackSet to collect all callbacks such that they can be passed to the ODE solver
 callbacks =
     CallbackSet(summary_callback, analysis_callback, save_solution, stepsize_callback)
 
