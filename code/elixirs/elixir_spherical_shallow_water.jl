@@ -132,10 +132,11 @@ end
 l2_error, linf_error = analysis_callback(integrator.sol)
 l2_error_prim, linf_error_prim = Trixi.calc_error_norms(
     cons2prim,
+    integrator.u,
     integrator.t,
-    analysis_callback.analyzer,
+    analysis_callback.affect!.analyzer,
     semi,
-    cache_analysis,
+    analysis_callback.affect!.cache,
 )
 t_final = integrator.t
 l2_depth_error, linf_depth_error = l2_error[1], linf_error[1]
