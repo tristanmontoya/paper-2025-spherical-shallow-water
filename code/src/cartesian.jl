@@ -159,3 +159,95 @@ function run_isolated_mountain_cartesian()
         n_saves = 150,
     )
 end
+
+function plot_unsteady_solid_body_rotation_cartesian()
+    # Figure 2a
+    plot_convergence(
+        [
+            "../results/20250714_unsteady_solid_body_rotation_N3_cartesian_ec/",
+            "../results/20250714_unsteady_solid_body_rotation_N3_cartesian_es/",
+        ],
+        plot_name = "unsteady_solid_body_rotation_convergence_N3_cartesian.pdf",
+        triangle_bottom_order = 4,
+        triangle_top_order = 3,
+    )
+    # Figure 2b
+    plot_convergence(
+        [
+            "../results/20250714_unsteady_solid_body_rotation_N4_cartesian_ec/",
+            "../results/20250714_unsteady_solid_body_rotation_N4_cartesian_es/",
+        ],
+        plot_name = "unsteady_solid_body_rotation_convergence_N4_cartesian.pdf",
+        triangle_bottom_order = 5,
+        triangle_top_order = 5,
+    )
+
+    # Figure 2c
+    plot_convergence(
+        [
+            "../results/20250714_unsteady_solid_body_rotation_p_refine_cartesian_ec/",
+            "../results/20250714_unsteady_solid_body_rotation_p_refine_cartesian_es/",
+        ],
+        triangle_bottom = false,
+        triangle_top = false,
+        plot_name = "unsteady_solid_body_rotation_p_refine_M4_cartesian.pdf",
+        xkey = "N",
+        xlabel = L"Polynomial degree $N$",
+        xticks = collect(2:10),
+        xscale = identity,
+        legend_position = (:left, :bottom),
+    )
+end
+
+function plot_isolated_mountain_cartesian()
+    # Figure 3a
+    plot_evolution(
+        [
+            "../results/20250715_well_balanced_cartesian_ec/N3M20",
+            "../results/20250715_well_balanced_cartesian_es/N3M20",
+        ],
+        plot_name = "well_balanced_l2_h_evolution_N3M20_cartesian.pdf",
+        ykey = "l2_h",
+        legend_position = (:left, :top),
+        relative = false,
+        ylabel = L"Normalized $L^2$ height error",
+        xlims = [0, 15],
+        ylims= [-0.2,5],
+        xticks = [0, 5, 10, 15],
+        ynorm = 1e-14,
+        exponent_text = L"\times 10^{-14}",
+    )
+
+    # Figure 3b
+    plot_evolution(
+        [
+            "../results/20250715_isolated_mountain_cartesian_ec/N3M20",
+            "../results/20250715_isolated_mountain_cartesian_es/N3M20",
+        ],
+        plot_name = "isolated_mountain_mass_evolution_N3M20_cartesian.pdf",
+        legend_position = (:left, :top),
+        xlims = [0, 15],
+        xticks = [0, 5, 10, 15],
+        ylims= [-0.85,4.5],
+        ykey = "waterheight",
+        ylabel = LaTeXString("Normalized mass change"),
+        ynorm = 1e-14,
+        exponent_text = L"\times 10^{-14}",
+    )
+
+    # Figure 3c
+    plot_evolution(
+        [
+            "../results/20250715_isolated_mountain_cartesian_ec/N3M20",
+            "../results/20250715_isolated_mountain_cartesian_es/N3M20",
+        ],
+        plot_name = "isolated_mountain_entropy_evolution_N3M20_cartesian.pdf",
+        legend_position = (:left, :bottom),
+        xlims = [0, 15],
+        xticks = [0, 5, 10, 15],
+        ylims = [-8.25, 0.25],
+        ykey = "e_total",
+        ynorm = 1e-8,
+        exponent_text = L"\times 10^{-8}",
+    )
+end

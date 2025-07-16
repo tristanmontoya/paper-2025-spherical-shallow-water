@@ -22,7 +22,7 @@ const surface_flux_es = (
     flux_nonconservative_surface_simplified,
 )
 
-export run_isolated_mountain_cartesian
+export run_isolated_mountain_cartesian, plot_isolated_mountain_cartesian, plot_unsteady_solid_body_rotation_cartesian
 include("cartesian.jl")
 
 function run_driver(
@@ -159,7 +159,7 @@ function plot_convergence(
     file = "analysis.dat",
     xkey = "resolution_km",
     ykey = "l2_height_error",
-    ynorm = "l2_height_norm",
+    ynorm = nothing,
     legend = true,
     xlabel = LaTeXString("Nominal resolution (km)"),
     ylabel = L"Normalized $L^2$ height error",
@@ -167,14 +167,15 @@ function plot_convergence(
     size = (350, 350),
     fontsize = 15,
     legendfontsize = 15,
+    trianglefontsize = 13,
     linewidth = 1.5,
     xticklabelfont = "CMU Serif",
     yticklabelfont = "CMU Serif",
     legendfont = "CMU Serif",
     xlims = nothing,
-    ylims = [1e-12, 1e-2],
+    ylims = [1e-13, 1e-2],
     xticks = [10 * 2^i for i = 0:7],
-    yticks = LogTicks(-12:-2),
+    yticks = LogTicks(-13:-2),
     xminorgridvisible = false,
     xminorticks = IntervalsBetween(10),
     xscale = log10,
@@ -266,7 +267,7 @@ function plot_convergence(
             position = (xm, ym),
             align = (:center, :center),
             color = :black,
-            fontsize = legendfontsize,
+            fontsize = trianglefontsize,
         )
     end
 
@@ -291,7 +292,7 @@ function plot_convergence(
             position = (xm, ym),
             align = (:center, :center),
             color = :black,
-            fontsize = legendfontsize,
+            fontsize = trianglefontsize,
         )
     end
 
@@ -366,7 +367,7 @@ function plot_evolution(
             joinpath(dir, file);
             header = true,
             delim = ' ',
-            select = collect(1:12),
+            #select = collect(1:18),
             ignorerepeated = true,
         ) for dir in dirs
     )
@@ -393,6 +394,7 @@ function plot_evolution(
     # Draw lines for each directory
     for (dir, label, style, color) in
         zip(reverse(dirs), reverse(labels), reverse(styles), reverse(colors))
+        println("dir = ", dir)
         if x_in_days
             xvalues = data[dir][xkey] / SECONDS_PER_DAY
         else
@@ -627,7 +629,7 @@ function run_unsteady_solid_body_rotation()
         auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
         surface_flux = surface_flux_ec,
         initial_cells_per_dimension = 4,
-        identifier = "ec_p_refine",
+        identifier = "_ec_p_refine",
         interval = 50,
         tspan = (0.0, 5.0 * SECONDS_PER_DAY),
         cfl = 0.1,
@@ -639,10 +641,10 @@ function run_unsteady_solid_body_rotation()
         1,
         polydeg = 2:10,
         initial_condition = initial_condition_unsteady_solid_body_rotation,
-        auxiliary_field = nothing,
+        auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
         surface_flux = surface_flux_es,
         initial_cells_per_dimension = 4,
-        identifier = "es_p_refine",
+        identifier = "_es_p_refine",
         interval = 50,
         tspan = (0.0, 5.0 * SECONDS_PER_DAY),
         cfl = 0.1,
@@ -841,8 +843,8 @@ function plot_unsteady_solid_body_rotation()
     # Figure 2a
     plot_convergence(
         [
-            "../results/20250505_unsteady_solid_body_rotation_N3_ec/",
-            "../results/20250505_unsteady_solid_body_rotation_N3_es/",
+            "../results/20250713_unsteady_solid_body_rotation_ec_N3/",
+            "../results/20250713_unsteady_solid_body_rotation_es_N3/",
         ],
         plot_name = "unsteady_solid_body_rotation_convergence_N3.pdf",
         triangle_bottom_order = 4,
@@ -851,8 +853,8 @@ function plot_unsteady_solid_body_rotation()
     # Figure 2b
     plot_convergence(
         [
-            "../results/20250505_unsteady_solid_body_rotation_N4_ec/",
-            "../results/20250505_unsteady_solid_body_rotation_N4_es/",
+            "../results/20250713_unsteady_solid_body_rotation_ec_N4/",
+            "../results/20250713_unsteady_solid_body_rotation_es_N4/",
         ],
         plot_name = "unsteady_solid_body_rotation_convergence_N4.pdf",
         triangle_bottom_order = 5,
@@ -862,8 +864,8 @@ function plot_unsteady_solid_body_rotation()
     # Figure 2c
     plot_convergence(
         [
-            "../results/20250505_unsteady_solid_body_rotation_p_refine_ec/",
-            "../results/20250505_unsteady_solid_body_rotation_p_refine_es/",
+            "../results/20250713_unsteady_solid_body_rotation_ec_p_refine/",
+            "../results/20250714_unsteady_solid_body_rotation_es_p_refine/",
         ],
         triangle_bottom = false,
         triangle_top = false,
@@ -880,8 +882,8 @@ function plot_isolated_mountain()
     # Figure 3a
     plot_evolution(
         [
-            "../results/20250518_well_balanced_ec/N3M20",
-            "../results/20250518_well_balanced_es/N3M20",
+            "../results/20250713_well_balanced_ec/N3M20",
+            "../results/20250713_well_balanced_es/N3M20",
         ],
         plot_name = "well_balanced_l2_h_evolution_N3M20.pdf",
         ykey = "l2_h",
@@ -889,6 +891,7 @@ function plot_isolated_mountain()
         relative = false,
         ylabel = L"Normalized $L^2$ height error",
         xlims = [0, 15],
+        ylims= [-0.2,5],
         xticks = [0, 5, 10, 15],
         ynorm = 1e-14,
         exponent_text = L"\times 10^{-14}",
@@ -897,13 +900,14 @@ function plot_isolated_mountain()
     # Figure 3b
     plot_evolution(
         [
-            "../results/20250520_isolated_mountain_ec/N3M20",
-            "../results/20250520_isolated_mountain_es/N3M20",
+            "../results/20250713_isolated_mountain_ec/N3M20",
+            "../results/20250713_isolated_mountain_es/N3M20",
         ],
         plot_name = "isolated_mountain_mass_evolution_N3M20.pdf",
         legend_position = (:left, :top),
         xlims = [0, 15],
         xticks = [0, 5, 10, 15],
+        ylims= [-0.85,4.5],
         ykey = "mass",
         ylabel = LaTeXString("Normalized mass change"),
         ynorm = 1e-14,
@@ -913,13 +917,14 @@ function plot_isolated_mountain()
     # Figure 3c
     plot_evolution(
         [
-            "../results/20250520_isolated_mountain_ec/N3M20",
-            "../results/20250520_isolated_mountain_es/N3M20",
+            "../results/20250713_isolated_mountain_ec/N3M20",
+            "../results/20250713_isolated_mountain_es/N3M20",
         ],
         plot_name = "isolated_mountain_entropy_evolution_N3M20.pdf",
         legend_position = (:left, :bottom),
         xlims = [0, 15],
         xticks = [0, 5, 10, 15],
+        ylims = [-8.25, 0.25],
         ykey = "entropy",
         ynorm = 1e-8,
         exponent_text = L"\times 10^{-8}",

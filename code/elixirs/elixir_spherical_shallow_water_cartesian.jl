@@ -17,6 +17,7 @@ cells_per_dimension = 2
 n_saves = 50
 tspan = (0.0, 5.0 * SECONDS_PER_DAY)
 output_dir = "out"
+
 ###############################################################################
 # Spatial discretization
 equations = ShallowWaterEquations3D(
@@ -93,6 +94,7 @@ analysis_callback = AnalysisCallback(
     semi,
     interval = 50,
     save_analysis = true,
+    output_directory = output_dir,
     extra_analysis_errors = (:l2_error_primitive, :linf_error_primitive),
     extra_analysis_integrals = (waterheight, energy_total),
     analysis_polydeg = polydeg,
