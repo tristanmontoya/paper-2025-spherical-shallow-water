@@ -2,9 +2,11 @@ module SphericalShallowWater
 
 using Trixi, TrixiAtmo, Trixi2Vtk
 using CairoMakie, LaTeXStrings, Dates, Printf, CSV
+using LinearAlgebra: norm
 
 export EXAMPLES_DIR, RESULTS_DIR
 export surface_flux_ec, surface_flux_es
+export pot_enst
 export run_driver, plot_convergence, plot_evolution, calc_norms
 export run_unsteady_solid_body_rotation,
     run_isolated_mountain, run_barotropic_instability, run_rossby_haurwitz
@@ -22,6 +24,10 @@ const surface_flux_es = (
     FluxPlusDissipation(flux_ec, DissipationLocalLaxFriedrichs()),
     flux_nonconservative_surface_simplified,
 )
+
+function pot_enst end
+Trixi.pretty_form_utf(::typeof(pot_enst)) = "pot_enst"
+Trixi.pretty_form_ascii(::typeof(pot_enst)) = "pot_enst"
 
 function run_driver(
     elixir::AbstractString,
@@ -491,7 +497,8 @@ end
     )
 end
 
-# Specialize the L2 and Linf error calculation
+# Specialize the L2 and Linf error calculation, since Trixi.jl does not normalize the same 
+# way as Williamson et al. (1992) and other geophysical fluid dynamics papers
 function Trixi.calc_error_norms(
     func,
     u,
@@ -557,6 +564,39 @@ function Trixi.calc_error_norms(
 
     return l2_error, linf_error
 end
+
+# Potential enstrophy
+function Trixi.analyze(
+    ::typeof(pot_enst),
+    du,
+    u,
+    t,
+    mesh::P4estMesh{2},
+    equations::TrixiAtmo.AbstractCovariantShallowWaterEquations2D,
+    dg::DGSEM,
+    cache,
+)
+    (; aux_node_vars,) = cache.auxiliary_variables
+    (; node_coordinates,) = cache.elements
+
+    Trixi.integrate_via_indices(
+        u,
+        mesh,
+        equations,
+        dg,
+        cache,
+        du,
+    ) do u, i, j, element, equations, dg, du_node
+        x_node = Trixi.get_node_coords(node_coordinates, equations, dg, i, j, element)
+        u_node = Trixi.get_node_vars(u, equations, dg, i, j, element)
+
+        h = Trixi.waterheight(u_node, equations)
+        f = 2 * equations.rotation_rate * x_node[3] / norm(x_node)  # 2Ωsinθ
+        zeta = TrixiAtmo.calc_vorticity_node(u, equations, dg, cache, i, j, element)
+        (zeta + f)^2 / h
+    end
+end
+
 
 function run_unsteady_solid_body_rotation()
     run_driver(
@@ -889,7 +929,7 @@ function plot_isolated_mountain()
         relative = false,
         ylabel = L"Normalized $L^2$ height error",
         xlims = [0, 15],
-        ylims= [-0.2,5],
+        ylims = [-0.2, 5],
         xticks = [0, 5, 10, 15],
         ynorm = 1e-14,
         exponent_text = L"\times 10^{-14}",
@@ -905,7 +945,7 @@ function plot_isolated_mountain()
         legend_position = (:left, :top),
         xlims = [0, 15],
         xticks = [0, 5, 10, 15],
-        ylims= [-0.85,4.5],
+        ylims = [-0.85, 4.5],
         ykey = "mass",
         ylabel = LaTeXString("Normalized mass change"),
         ynorm = 1e-14,

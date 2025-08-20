@@ -83,7 +83,7 @@ analysis_callback = AnalysisCallback(
     save_analysis = true,
     output_directory = output_dir,
     extra_analysis_errors = (:l2_error_primitive, :linf_error_primitive),
-    extra_analysis_integrals = (mass, entropy),
+    extra_analysis_integrals = (mass, entropy, pot_enst),
 )
 
 # The SaveSolutionCallback allows to save the solution to a file in regular intervals
