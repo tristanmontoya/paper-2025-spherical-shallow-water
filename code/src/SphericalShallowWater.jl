@@ -16,14 +16,12 @@ const EXAMPLES_DIR = TrixiAtmo.examples_dir()
 const RESULTS_DIR = joinpath(dirname(dirname(@__DIR__)), "results")
 const PLOTS_DIR = joinpath(dirname(dirname(@__DIR__)), "plots")
 
+# EC and ES surface fluxes
 const surface_flux_ec = (flux_ec, flux_nonconservative_surface_simplified)
 const surface_flux_es = (
     FluxPlusDissipation(flux_ec, DissipationLocalLaxFriedrichs()),
     flux_nonconservative_surface_simplified,
 )
-
-export run_isolated_mountain_cartesian, plot_isolated_mountain_cartesian, plot_unsteady_solid_body_rotation_cartesian
-include("cartesian.jl")
 
 function run_driver(
     elixir::AbstractString,
@@ -96,7 +94,7 @@ function run_driver(
                 cells_per_dimension = M,
             )
 
-            resolution_km = π * EARTH_RADIUS / (2 * M * N * 1000) # scale by 1000 to get km
+            resolution_km = π * EARTH_RADIUS / (2 * M * N * 1000) # scaled by 1000 to get km
             end_time = mod.t_final / SECONDS_PER_DAY
 
             append!(end_times, end_time)

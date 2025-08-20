@@ -17,18 +17,16 @@ deps/src/
 docs/build/
 docs/site/
 
-# Solution and mesh files 
+# Results
+results/
 *.h5
 *p4est_data
 
-# VTK files
-*.vtu
-
 # Plots
+plots/
 *.png 
 *.pdf
-
-*.pvsm
+*.vtu
 *.pvd
 
 # MacOS files 
