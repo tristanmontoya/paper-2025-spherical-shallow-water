@@ -25,6 +25,7 @@ const surface_flux_es = (
     flux_nonconservative_surface_simplified,
 )
 
+# potential enstrophy analysis
 function pot_enst end
 Trixi.pretty_form_utf(::typeof(pot_enst)) = "pot_enst"
 Trixi.pretty_form_ascii(::typeof(pot_enst)) = "pot_enst"
@@ -324,10 +325,11 @@ function plot_evolution(
         ),
         "N7M4",
     );
+    line_order = [2, 1],
     plots_dir = PLOTS_DIR,
     plot_name = nothing,
     labels = [LaTeXString("EC"), LaTeXString("ES")],
-    styles = [:dash, :solid],
+    styles = [:dot, :solid],
     colors = 1:length(labels),
     file = "analysis.dat",
     xkey = "time",
@@ -371,13 +373,13 @@ function plot_evolution(
             joinpath(dir, file);
             header = true,
             delim = ' ',
-            #select = collect(1:18),
             ignorerepeated = true,
         ) for dir in dirs
     )
 
     # Set up figure parameters
     f = Figure(size = size, fontsize = fontsize)
+
     ax = Axis(
         f[1, 1];
         xlabel = xlabel,
@@ -395,10 +397,32 @@ function plot_evolution(
         ylims!(ax, ylims)
     end
 
+    # draw vertical lines for crash times 
+    if !isnothing(vlinepositions)
+        for i in eachindex(vlinepositions)
+            vlines!(ax, [vlinepositions[i]], color = vlinecolors[i], linewidth = vlinewidth)
+        end
+        if !isnothing(vlinelabels) && !isnothing(ylims)
+            for i in eachindex(vlinepositions)
+                text!(
+                    ax,
+                    vlinepositions[i],
+                    ylims[1];
+                    text = vlinelabels[i],
+                    color = vlinecolors[i],
+                    align = vlinealigns[i],
+                    offset = vlineoffsets[i],
+                    font = vlinelabelfont,
+                    fontsize = vlinelabelsize,
+                    label = nothing,
+                )
+            end
+        end
+    end
+
     # Draw lines for each directory
     for (dir, label, style, color) in
-        zip(reverse(dirs), reverse(labels), reverse(styles), reverse(colors))
-        println("dir = ", dir)
+        zip(dirs[line_order], labels[line_order], styles[line_order], colors[line_order])
         if x_in_days
             xvalues = data[dir][xkey] / SECONDS_PER_DAY
         else
@@ -418,37 +442,18 @@ function plot_evolution(
             linewidth = linewidth,
             color = Makie.Cycled(color),
         )
+        println("dir: ", dir, "\nmin: ", minimum(yvalues), ", max: ", maximum(yvalues))
     end
+    println("\n")
 
     if !isnothing(exponent_text)
         Label(f[1, 1, Top()], halign = :left, exponent_text)
     end
 
-    if !isnothing(vlinepositions)
-        for i in eachindex(vlinepositions)
-            vlines!(ax, [vlinepositions[i]], color = vlinecolors[i], linewidth = vlinewidth)
-        end
-        if !isnothing(vlinelabels) && !isnothing(ylims)
-            for i in eachindex(vlinepositions)
-                text!(
-                    ax,
-                    vlinepositions[i],
-                    ylims[1];
-                    text = vlinelabels[i],
-                    color = vlinecolors[i],
-                    align = vlinealigns[i],
-                    offset = vlineoffsets[i],
-                    font = vlinelabelfont,
-                    fontsize = vlinelabelsize,
-                )
-            end
-        end
-    end
-
     if legend
         axislegend(
             ax,
-            reverse(ax.scene.plots[1:length(labels)]),
+            ax.scene.plots[(length(vlinepositions)*2+1):end][line_order],
             labels;
             position = legend_position,
             font = legendfont,
@@ -847,6 +852,20 @@ function run_rossby_haurwitz()
     )
 
     run_driver(
+        "elixirs/elixir_spherical_shallow_water_standard_dg.jl",
+        1,
+        polydeg = 3,
+        initial_condition = initial_condition_rossby_haurwitz,
+        auxiliary_field = nothing,
+        initial_cells_per_dimension = 16,
+        identifier = "_standard_N3",
+        interval = 50,
+        tspan = (0.0, 28.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 280,
+    )
+
+    run_driver(
         "elixirs/elixir_spherical_shallow_water.jl",
         1,
         polydeg = 7,
@@ -870,6 +889,20 @@ function run_rossby_haurwitz()
         surface_flux = surface_flux_es,
         initial_cells_per_dimension = 8,
         identifier = "_es_N7",
+        interval = 50,
+        tspan = (0.0, 28.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 280,
+    )
+
+    run_driver(
+        "elixirs/elixir_spherical_shallow_water_standard_dg.jl",
+        1,
+        polydeg = 7,
+        initial_condition = initial_condition_rossby_haurwitz,
+        auxiliary_field = nothing,
+        initial_cells_per_dimension = 8,
+        identifier = "_standard_N7",
         interval = 50,
         tspan = (0.0, 28.0 * SECONDS_PER_DAY),
         cfl = 0.1,
@@ -970,7 +1003,7 @@ function plot_isolated_mountain()
 end
 
 function plot_barotropic_instability()
-    # Figure 4a
+    # Figure 5a
     plot_evolution(
         [
             "../results/20250525_steady_barotropic_instability_ec_M16/N3M16",
@@ -988,7 +1021,7 @@ function plot_barotropic_instability()
         ylims = [-1, 12],
     )
 
-    # Figure 4b
+    # Figure 5b
     plot_evolution(
         [
             "../results/20250520_steady_barotropic_instability_ec/N3M32",
@@ -1006,7 +1039,7 @@ function plot_barotropic_instability()
         ylims = [-1, 12],
     )
 
-    # Figure 4c
+    # Figure 5c
     plot_evolution(
         [
             "../results/20250520_steady_barotropic_instability_ec/N3M64",
@@ -1025,7 +1058,7 @@ function plot_barotropic_instability()
     )
 
 
-    # Figure 4d
+    # Figure 5d
     plot_evolution(
         [
             "../results/20250525_steady_barotropic_instability_ec_M16/N3M16",
@@ -1041,7 +1074,7 @@ function plot_barotropic_instability()
         ylims = [-5, 0.25],
     )
 
-    # Figure 4e
+    # Figure 5e
     plot_evolution(
         [
             "../results/20250520_steady_barotropic_instability_ec/N3M32",
@@ -1057,7 +1090,7 @@ function plot_barotropic_instability()
         ylims = [-5, 0.25],
     )
 
-    # Figure 4f
+    # Figure 5f
     plot_evolution(
         [
             "../results/20250520_steady_barotropic_instability_ec/N3M64",
@@ -1076,13 +1109,14 @@ function plot_barotropic_instability()
 end
 
 function plot_rossby_haurwitz()
-    # Figure 7a
+    # Figure 8a
     plot_evolution(
         [
-            "../results/20250526_rossby_haurwitz_ec_28days/N3M16/",
-            "../results/20250526_rossby_haurwitz_es_28days/N3M16/",
-            "../results/20250520_rossby_haurwitz_standard_21days/N3M16/",
+            "../results/20250826_rossby_haurwitz_ec_N3/N3M16/",
+            "../results/20250826_rossby_haurwitz_es_N3/N3M16/",
+            "../results/20250826_rossby_haurwitz_standard_N3/N3M16/",
         ],
+        line_order = [2, 1, 3],
         plot_name = "rossby_haurwitz_entropy_evolution_N3M16.pdf",
         labels = [LaTeXString("EC"), LaTeXString("ES"), LaTeXString("Standard")],
         styles = [:dash, :solid, :dot],
@@ -1097,13 +1131,14 @@ function plot_rossby_haurwitz()
         size = (500, 350),
     )
 
-    # Figure 7b
+    # Figure 8b
     plot_evolution(
         [
-            "../results/20250520_rossby_haurwitz_ec_21days_N7/N7M8/",
-            "../results/20250526_rossby_haurwitz_es_28day_N7/N7M8/",
-            "../results/20250520_rossby_haurwitz_standard_21days_N7/N7M8/",
+            "../results/20250826_rossby_haurwitz_ec_N7/N7M8/",
+            "../results/20250826_rossby_haurwitz_es_N7/N7M8/",
+            "../results/20250826_rossby_haurwitz_standard_N7/N7M8/",
         ],
+        line_order = [2, 1, 3],
         plot_name = "rossby_haurwitz_entropy_evolution_N7M8.pdf",
         labels = [LaTeXString("EC"), LaTeXString("ES"), LaTeXString("Standard")],
         styles = [:dash, :solid, :dot],
@@ -1114,7 +1149,48 @@ function plot_rossby_haurwitz()
         legend_position = (:right, :top),
         xlims = [0, 28],
         ylims = [-5, 5],
-        vlinepositions = [10.91976, 13.92261], # crash times
+        vlinepositions = [10.91976, 17.43146], # crash times
+        size = (500, 350),
+    )
+    # Figure 8c
+    plot_evolution(
+        [
+            "../results/20250826_rossby_haurwitz_ec_N3/N3M16/",
+            "../results/20250826_rossby_haurwitz_es_N3/N3M16/",
+            "../results/20250826_rossby_haurwitz_standard_N3/N3M16/",
+        ],
+        line_order = [2, 1, 3],
+        plot_name = "rossby_haurwitz_enstrophy_evolution_N3M16.pdf",
+        labels = [LaTeXString("EC"), LaTeXString("ES"), LaTeXString("Standard")],
+        styles = [:dash, :solid, :dot],
+        ykey = "pot_enst",
+        ylabel = LaTeXString("Normalized potential enstrophy change"),
+        xticks = [0, 7, 14, 21, 28],
+        legend_position = (:right, :top),
+        xlims = [0, 28],
+        ylims = [-2, 15],
+        vlinepositions = [18.71370, 26.03088], # crash times
+        size = (500, 350),
+    )
+
+    # Figure 8d
+    plot_evolution(
+        [
+            "../results/20250826_rossby_haurwitz_ec_N7/N7M8/",
+            "../results/20250826_rossby_haurwitz_es_N7/N7M8/",
+            "../results/20250826_rossby_haurwitz_standard_N7/N7M8/",
+        ],
+        line_order = [2, 1, 3],
+        plot_name = "rossby_haurwitz_enstrophy_evolution_N7M8.pdf",
+        labels = [LaTeXString("EC"), LaTeXString("ES"), LaTeXString("Standard")],
+        styles = [:dash, :solid, :dot],
+        ykey = "pot_enst",
+        ylabel = LaTeXString("Normalized potential enstrophy change"),
+        xticks = [0, 7, 14, 21, 28],
+        legend_position = (:right, :top),
+        xlims = [0, 28],
+        ylims = [-2, 15],
+        vlinepositions = [10.91976, 17.43146], # crash times
         size = (500, 350),
     )
 end
