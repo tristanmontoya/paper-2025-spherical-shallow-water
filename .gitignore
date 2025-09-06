@@ -19,15 +19,9 @@ docs/site/
 
 # Results
 results/
-*.h5
-*.vtu
-*p4est_data
 
 # Plots
 plots/
-*.png 
-*.vtu
-*.pvd
 
 # MacOS files 
 .DS_Store
