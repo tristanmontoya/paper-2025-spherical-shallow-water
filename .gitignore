@@ -18,7 +18,6 @@ docs/build/
 docs/site/
 
 # Results
-results/
 *.h5
 *.vtu
 *p4est_data
