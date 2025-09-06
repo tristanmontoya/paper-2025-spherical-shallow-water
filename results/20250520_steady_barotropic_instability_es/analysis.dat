@@ -1,3 +1,0 @@
-N   M   end_time resolution_km            l2_height_error          linf_height_error        l2_order linf_order
-3   32  12.00000 1.04248843470856045e+02  1.12649903864686079e-02  5.72023920770975067e-02  missing  missing
-3   64  12.00000 5.21244217354280224e+01  7.51738562209080738e-03  4.52376057283049166e-02  0.58     0.34     
