@@ -1,15 +1,15 @@
-# Entropy-Stable Discontinuous Spectral-Element Methods for the Spherical Shallow Water Equations in Covariant Form
+# [Entropy-Stable Discontinuous Spectral-Element Methods for the Spherical Shallow Water Equations in Covariant Form](https://arxiv.org/abs/2509.08790)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-success.svg)](https://opensource.org/licenses/MIT) [![doi: https://doi.org/10.5281/zenodo.17059901](https://zenodo.org/badge/DOI/10.5281/zenodo.17059901.svg)](https://doi.org/10.5281/zenodo.17059901)
 
 This repository contains information and code to reproduce the results presented in the following article:
 ```bibtex
-@online{MontoyaSphericalShallowWater2025,
+@article{MontoyaSphericalShallowWater2025,
   title={Entropy-Stable Discontinuous Spectral-Element Methods for the 
          Spherical Shallow Water Equations in Covariant Form},
   author={Montoya, Tristan and Rueda-Ramírez, Andrés M. and Gassner, Gregor J.},
   year={2025},
-  journal={Submitted preprint}
+  journal = {Preprint, arXiv:2509.08790 [math.NA]},
 }
 ```
 
@@ -48,7 +48,6 @@ This will automatically generate the `results/` directory, where the subdirector
 Reproducing the plots in Figures 2, 3, 5, and 8 is similarly automated through the following REPL commands, which will place `.pdf` files generated with [Makie.jl](https://github.com/MakieOrg/Makie.jl/) in the (automatically generated) `plots/` directory:
 
 ```julia
-using Trixi, TrixiAtmo, SphericalShallowWater
 plot_unsteady_solid_body_rotation()  # Figure 2
 plot_isolated_mountain()  # Figure 3
 plot_barotropic_instability()  # Figure 5
