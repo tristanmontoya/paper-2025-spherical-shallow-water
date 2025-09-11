@@ -1,6 +1,6 @@
 # [Entropy-Stable Discontinuous Spectral-Element Methods for the Spherical Shallow Water Equations in Covariant Form](https://arxiv.org/abs/2509.08790)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-success.svg)](https://opensource.org/licenses/MIT) [![doi: https://doi.org/10.5281/zenodo.17059901](https://zenodo.org/badge/DOI/10.5281/zenodo.17059901.svg)](https://doi.org/10.5281/zenodo.17059901)
+[![License: MIT](https://img.shields.io/badge/License-MIT-success.svg)](https://opensource.org/licenses/MIT) [![doi: https://doi.org/10.5281/zenodo.17059901](https://zenodo.org/badge/DOI/10.5281/zenodo.17059900.svg)](https://doi.org/10.5281/zenodo.17059900)
 
 This repository contains information and code to reproduce the results presented in the following article:
 ```bibtex
