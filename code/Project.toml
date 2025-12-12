@@ -1,7 +1,7 @@
 name = "SphericalShallowWater"
 uuid = "07b7820f-0b4c-49f5-b7cd-1b0a856e0d82"
-authors = ["Tristan Montoya <montoya.tristan@gmail.com>", "Andrés Rueda-Ramírez <aruedara@uni-koeln.de>"]
 version = "0.1.0"
+authors = ["Tristan Montoya <montoya.tristan@gmail.com>", "Andrés Rueda-Ramírez <aruedara@uni-koeln.de>"]
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
@@ -15,3 +15,6 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
 Trixi2Vtk = "bc1476a1-1ca6-4cc3-950b-c312b255ff95"
 TrixiAtmo = "c9ed1054-d170-44a9-8ee2-d5566f5d1389"
+
+[compat]
+TrixiAtmo = "0.1.0"

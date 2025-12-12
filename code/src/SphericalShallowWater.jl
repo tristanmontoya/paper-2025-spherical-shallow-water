@@ -8,6 +8,7 @@ export EXAMPLES_DIR, RESULTS_DIR
 export surface_flux_ec, surface_flux_es
 export pot_enst
 export run_driver, plot_convergence, plot_evolution, calc_norms
+export run_timestep_convergence
 export run_unsteady_solid_body_rotation,
     run_isolated_mountain, run_barotropic_instability, run_rossby_haurwitz
 export plot_unsteady_solid_body_rotation,
@@ -1260,6 +1261,145 @@ function plot_rossby_haurwitz()
         inset_yticks = [-0.001, 0],
         show_in_inset = [2],
     )
+end
+
+function run_timestep_convergence(
+    elixir::AbstractString,
+    iterations = 5, # number of times to halve the time step
+    RealT = Float64;
+    results_dir = RESULTS_DIR,
+    polydeg = 3,
+    cells_per_dimension = 20,
+    initial_condition = initial_condition_isolated_mountain,
+    auxiliary_field = bottom_topography_isolated_mountain,
+    surface_flux = surface_flux_ec,
+    tspan = (0.0, 15.0 * SECONDS_PER_DAY),
+    initial_dt = 320.0, # initial time step in seconds
+    date = Dates.format(today(), dateformat"yyyymmdd"),
+    identifier = "_timestep_study",
+    kwargs...,
+)
+
+    mod = @__MODULE__
+
+    # Get name for project
+    ic_name = replace(string(initial_condition), r"^initial_condition_" => "")
+    project_dir = mkpath(joinpath(results_dir, string(date, "_", ic_name, identifier)))
+    println("Project directory: ", project_dir)
+
+    # Format output file and write headers
+    fmt1 = Printf.Format(
+        "%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^3 * "missing" * "\n",
+    ) # no EOC for first iteration
+    fmt2 = Printf.Format(
+        "%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^3 * "%-9.2f" * "\n",
+    )
+    headers = [
+        "N   ",
+        "M   ",
+        "dt      ",
+        "entropy_error",
+        "entropy_initial",
+        "entropy_final",
+        "ent_order",
+    ]
+    open(joinpath(project_dir, "timestep_analysis.dat"), "w") do io
+        println(
+            io,
+            string(
+                headers[1:3]...,
+                rpad.(headers[4:end-1], 25)...,
+                headers[end],
+            ),
+        )
+    end
+
+    dt_values = RealT[]
+    entropy_errors = RealT[]
+
+    # Run simulations with decreasing time steps
+    for (iter, dt_factor) in enumerate(2.0 .^ ((0:iterations-1)))
+        dt = initial_dt / dt_factor
+
+        # Run simulation with fixed time step (no CFL-based adaptation)
+        trixi_include(
+            mod,
+            elixir;
+            kwargs...,
+            output_dir = joinpath(project_dir, string("N", polydeg, "M", cells_per_dimension, "_dt", dt)),
+            initial_condition = initial_condition,
+            auxiliary_field = auxiliary_field,
+            surface_flux = surface_flux,
+            polydeg = polydeg,
+            cells_per_dimension = cells_per_dimension,
+            tspan = tspan,
+            dt = dt,
+            cfl = nothing, # disable CFL-based time stepping
+            interval = 50, # reduce analysis frequency
+            n_saves = 2, # save only initial and final states
+        )
+
+        # Extract entropy values from analysis file
+        analysis_file = joinpath(
+            project_dir, 
+            string("N", polydeg, "M", cells_per_dimension, "_dt", dt),
+            "analysis.dat"
+        )
+        
+        # Read entropy values
+        data = CSV.File(
+            analysis_file;
+            header = true,
+            delim = ' ',
+            ignorerepeated = true,
+        )
+        
+        entropy_initial = data.entropy[1]
+        entropy_final = data.entropy[end]
+        entropy_error = abs(entropy_final - entropy_initial)
+
+        append!(dt_values, dt)
+        append!(entropy_errors, entropy_error)
+
+        # Write results
+        open(joinpath(project_dir, "timestep_analysis.dat"), "a") do io
+            if iter == 1 # first iteration, no order calculation
+                Printf.format(
+                    io,
+                    fmt1,
+                    polydeg,
+                    cells_per_dimension,
+                    dt,
+                    entropy_error,
+                    entropy_initial,
+                    entropy_final,
+                )
+            else
+                entropy_order = log(entropy_errors[end] / entropy_errors[end-1]) / 
+                                log(dt_values[end] / dt_values[end-1])
+                Printf.format(
+                    io,
+                    fmt2,
+                    polydeg,
+                    cells_per_dimension,
+                    dt,
+                    entropy_error,
+                    entropy_initial,
+                    entropy_final,
+                    dt_order,
+                    entropy_order,
+                )
+            end
+        end
+
+        println("\n\n")
+        println("#"^100)
+    end
+
+    println("\nTimestep convergence study completed!")
+    println("Results saved to: ", project_dir)
+    
+    return project_dir
 end
 
 end # module SphericalShallowWater

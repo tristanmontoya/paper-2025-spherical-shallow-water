@@ -20,6 +20,9 @@ docs/site/
 # Results
 results/
 
+# Other files
+examples/
+
 # Plots
 plots/
 

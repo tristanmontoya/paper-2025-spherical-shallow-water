@@ -14,6 +14,7 @@ cells_per_dimension = 2
 n_saves = 50
 tspan = (0.0, 5.0 * SECONDS_PER_DAY)
 output_dir = "out"
+cfl = 0.1
 
 ###############################################################################
 # Custom outputs
@@ -86,13 +87,16 @@ save_solution = SaveSolutionCallback(
     solution_variables = cons2prim_and_vorticity,
 )
 
-# The StepsizeCallback handles the re-calculation of the maximum Δt after each time step
-stepsize_callback = StepsizeCallback(cfl = 0.1)
+if !isnothing(cfl)
+    # The StepsizeCallback handles the re-calculation of the maximum Δt after each time step
+    stepsize_callback = StepsizeCallback(cfl = 0.1)
 
-# Create a CallbackSet to collect all callbacks such that they can be passed to the ODE 
-# solver
-callbacks =
-    CallbackSet(summary_callback, analysis_callback, save_solution, stepsize_callback)
+    # Create a CallbackSet to collect all callbacks
+    callbacks =
+        CallbackSet(summary_callback, analysis_callback, save_solution, stepsize_callback)
+else
+    callbacks = CallbackSet(summary_callback, analysis_callback, save_solution)
+end
 
 ###############################################################################
 # run the simulation
