@@ -8,7 +8,7 @@ export EXAMPLES_DIR, RESULTS_DIR
 export surface_flux_ec, surface_flux_es
 export pot_enst
 export run_driver, plot_convergence, plot_evolution, calc_norms
-export run_timestep_convergence
+export run_timestep_convergence, plot_timestep_evolution
 export run_unsteady_solid_body_rotation,
     run_isolated_mountain, run_barotropic_instability, run_rossby_haurwitz
 export plot_unsteady_solid_body_rotation,
@@ -1297,19 +1297,17 @@ function run_timestep_convergence(
     headers = [
         "N   ",
         "M   ",
-        "dt      ",
-        "entropy_error",
-        "entropy_initial",
-        "entropy_final",
+        "dt        ",
+        "entropy_error            ",
+        "entropy_initial          ",
+        "entropy_final            ",
         "ent_order",
     ]
     open(joinpath(project_dir, "timestep_analysis.dat"), "w") do io
         println(
             io,
             string(
-                headers[1:3]...,
-                rpad.(headers[4:end-1], 25)...,
-                headers[end],
+                headers...,
             ),
         )
     end
@@ -1353,10 +1351,11 @@ function run_timestep_convergence(
             delim = ' ',
             ignorerepeated = true,
         )
-        
         entropy_initial = data.entropy[1]
         entropy_final = data.entropy[end]
-        entropy_error = abs(entropy_final - entropy_initial)
+
+        # relative entropy error
+        entropy_error = abs(entropy_final - entropy_initial) / abs(entropy_initial)
 
         append!(dt_values, dt)
         append!(entropy_errors, entropy_error)
@@ -1386,7 +1385,6 @@ function run_timestep_convergence(
                     entropy_error,
                     entropy_initial,
                     entropy_final,
-                    dt_order,
                     entropy_order,
                 )
             end
