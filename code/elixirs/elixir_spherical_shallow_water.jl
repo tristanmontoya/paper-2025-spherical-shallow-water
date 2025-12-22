@@ -16,6 +16,7 @@ n_saves = 50
 tspan = (0.0, 5.0 * SECONDS_PER_DAY)
 output_dir = "out"
 cfl = 0.1
+dt_initial = 100.0
 
 ###############################################################################
 # Custom outputs
@@ -111,7 +112,7 @@ end
 integrator = init(
     ode,
     CarpenterKennedy2N54(williamson_condition = false, thread = Trixi.True()),
-    dt = 100.0,
+    dt = dt_initial,
     maxiters = 1e8,
     save_everystep = false,
     callback = callbacks,

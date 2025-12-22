@@ -8,9 +8,9 @@ export EXAMPLES_DIR, RESULTS_DIR
 export surface_flux_ec, surface_flux_es
 export pot_enst
 export run_driver, plot_convergence, plot_evolution, calc_norms
-export run_timestep_convergence, plot_timestep_evolution
 export run_unsteady_solid_body_rotation,
     run_isolated_mountain, run_barotropic_instability, run_rossby_haurwitz
+export run_timestep_study, plot_timestep_study
 export plot_unsteady_solid_body_rotation,
     plot_isolated_mountain, plot_barotropic_instability, plot_rossby_haurwitz
 export initial_condition_well_balanced, initial_condition_steady_barotropic_instability
@@ -19,6 +19,15 @@ const EXAMPLES_DIR = TrixiAtmo.examples_dir()
 const RESULTS_DIR = joinpath(dirname(dirname(@__DIR__)), "results")
 const PLOTS_DIR = joinpath(dirname(dirname(@__DIR__)), "plots")
 
+# extra analysis for normalized errors
+include("analysis.jl")
+
+# scripts to run drivers
+include("run.jl")
+
+# scripts to generate figures
+include("plot.jl")
+
 # EC and ES surface fluxes
 const surface_flux_ec = (flux_ec, flux_nonconservative_surface_simplified)
 const surface_flux_es = (
@@ -26,21 +35,16 @@ const surface_flux_es = (
     flux_nonconservative_surface_simplified,
 )
 
-# potential enstrophy analysis
-function pot_enst end
-Trixi.pretty_form_utf(::typeof(pot_enst)) = "pot_enst"
-Trixi.pretty_form_ascii(::typeof(pot_enst)) = "pot_enst"
-
 function run_driver(
     elixir::AbstractString,
-    iterations = 1, # number of times to double `cells_per_dimension`
+    iterations = 1,
     RealT = Float64;
-    results_dir = RESULTS_DIR, # top level directory to store results
-    polydeg = 3, # can also be a single integer value
-    initial_cells_per_dimension = 4, # initial value of `cells_per_dimension`
+    results_dir = RESULTS_DIR,
+    polydeg = 3,
+    initial_cells_per_dimension = 4,
     initial_condition = initial_condition_unsteady_solid_body_rotation,
     date = Dates.format(today(), dateformat"yyyymmdd"),
-    identifier = "", # suffix to identify a specific run
+    identifier = "",
     kwargs...,
 )
 
@@ -53,10 +57,10 @@ function run_driver(
 
     # Format top-level output file and write headers
     fmt1 = Printf.Format(
-        "%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^5 * "missing  " * "missing" * "\n",
+        "%-4d" * "%-4d" * "%-9.5f" * "%-25.17e"^5 * "missing  " * "missing  " * "\n",
     ) # no EOC
     fmt2 = Printf.Format(
-        "%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^5 * "%-9.2f" * "%-9.2f" * "\n",
+        "%-4d" * "%-4d" * "%-9.5f" * "%-25.17e"^5 * "%-9.2f" * "%-9.2f" * "\n",
     )
     headers = [
         "N   ",
@@ -90,7 +94,12 @@ function run_driver(
     cells_per_dimension = initial_cells_per_dimension .* 2 .^ ((1:iterations) .- 1)
 
     # run simulations and extract errors
-    for N in polydeg
+    polydeg_iter = polydeg isa Integer ? (polydeg:polydeg) : polydeg
+    for N in polydeg_iter
+        empty!(resolutions)
+        empty!(l2_errors)
+        empty!(linf_errors)
+        empty!(end_times)
         for M in cells_per_dimension
             trixi_include(
                 mod,
@@ -103,15 +112,23 @@ function run_driver(
             )
 
             resolution_km = π * EARTH_RADIUS / (2 * M * N * 1000) # scaled by 1000 to get km
-            end_time = mod.t_final / SECONDS_PER_DAY
 
-            append!(end_times, end_time)
-            append!(resolutions, resolution_km)
-            append!(l2_errors, mod.l2_height_error)
-            append!(linf_errors, mod.linf_height_error)
+            # invokelatest used to avoid world age issues
+            t_final = Base.invokelatest(getproperty, mod, :t_final)
+            l2_depth_error = Base.invokelatest(getproperty, mod, :l2_depth_error)
+            linf_depth_error = Base.invokelatest(getproperty, mod, :linf_depth_error)
+            l2_height_error = Base.invokelatest(getproperty, mod, :l2_height_error)
+            linf_height_error = Base.invokelatest(getproperty, mod, :linf_height_error)
+
+            end_time = t_final / SECONDS_PER_DAY
+
+            push!(end_times, end_time)
+            push!(resolutions, resolution_km)
+            push!(l2_errors, l2_height_error)
+            push!(linf_errors, linf_height_error)
 
             open(joinpath(project_dir, "analysis.dat"), "a") do io
-                if M == initial_cells_per_dimension # don't compute order for first grid
+                if M == first(cells_per_dimension) # don't compute order for first grid
                     Printf.format(
                         io,
                         fmt1,
@@ -119,8 +136,8 @@ function run_driver(
                         M,
                         end_time,
                         resolution_km,
-                        mod.l2_depth_error,
-                        mod.linf_depth_error,
+                        l2_depth_error,
+                        linf_depth_error,
                         l2_height_error,
                         linf_height_error,
                     )
@@ -132,10 +149,10 @@ function run_driver(
                         M,
                         end_time,
                         resolution_km,
-                        mod.l2_depth_error,
-                        mod.linf_depth_error,
-                        mod.l2_height_error,
-                        mod.linf_height_error,
+                        l2_depth_error,
+                        linf_depth_error,
+                        l2_height_error,
+                        linf_height_error,
                         log(l2_errors[end] / l2_errors[end-1]) / log(1 / 2),
                         log(linf_errors[end] / linf_errors[end-1]) / log(1 / 2),
                     )
@@ -147,6 +164,179 @@ function run_driver(
         end
     end
 
+end
+
+function run_timestep_study(
+    elixir::AbstractString,
+    iterations = 6,
+    RealT = Float64;
+    results_dir = RESULTS_DIR,
+    polydeg = 3,
+    cells_per_dimension = 16,
+    n_saves = 120,
+    initial_condition = initial_condition_steady_barotropic_instability,
+    auxiliary_field = nothing,
+    surface_flux = surface_flux_ec,
+    tspan = (0.0, 12.0 * SECONDS_PER_DAY),
+    initial_dt = 320.0,
+    date = Dates.format(today(), dateformat"yyyymmdd"),
+    identifier = "_timestep_study",
+    kwargs...,
+)
+
+    mod = @__MODULE__
+
+    # Get name for project
+    ic_name = replace(string(initial_condition), r"^initial_condition_" => "")
+    project_dir = mkpath(joinpath(results_dir, string(date, "_", ic_name, identifier)))
+    println("Project directory: ", project_dir)
+
+    # Format output file and write headers
+    fmt1 = Printf.Format(
+        "%-4d" * "%-4d" *
+        "%-25.17e" * # dt
+        "%-25.17e" * # mass_initial
+        "%-25.17e" * # mass_final
+        "%-25.17e" * # mass_error
+        "%-25s" *    # mass_order
+        "%-25.17e" * # entropy_initial
+        "%-25.17e" * # entropy_final
+        "%-25.17e" * # entropy_error
+        "%-25s" *    # entropy_order
+        "\n",
+    ) # no EOC for first iteration
+    fmt2 = Printf.Format(
+        "%-4d" * "%-4d" *
+        "%-25.17e" * # dt
+        "%-25.17e" * # mass_initial
+        "%-25.17e" * # mass_final
+        "%-25.17e" * # mass_error
+        "%-25.2f" *  # mass_order
+        "%-25.17e" * # entropy_initial
+        "%-25.17e" * # entropy_final
+        "%-25.17e" * # entropy_error
+        "%-25.2f" *  # entropy_order
+        "\n",
+    )
+    headers = [
+        "N   ",
+        "M   ",
+        "dt                       ",
+        "mass_initial             ",
+        "mass_final               ",
+        "mass_error               ",
+        "mass_order               ",
+        "entropy_initial          ",
+        "entropy_final            ",
+        "entropy_error            ",
+        "entropy_order            ",
+    ]
+    open(joinpath(project_dir, "timestep_analysis.dat"), "w") do io
+        println(
+            io,
+            string(
+                headers...,
+            ),
+        )
+    end
+
+    dt_values = RealT[]
+    mass_errors = RealT[]
+    entropy_errors = RealT[]
+
+    # Run simulations with decreasing time steps
+    for (iter, dt_factor) in enumerate(2.0 .^ ((0:iterations-1)))
+        dt = initial_dt / dt_factor
+
+        # Run simulation with fixed time step (no CFL-based adaptation)
+        trixi_include(
+            mod,
+            elixir;
+            kwargs...,
+            output_dir = joinpath(
+                project_dir,
+                string("N", polydeg, "M", cells_per_dimension, "_dt", dt),
+            ),
+            initial_condition = initial_condition,
+            auxiliary_field = auxiliary_field,
+            surface_flux = surface_flux,
+            polydeg = polydeg,
+            cells_per_dimension = cells_per_dimension,
+            tspan = tspan,
+            dt_initial = dt,
+            cfl = nothing, # disable CFL-based time stepping
+            interval = 50,
+            n_saves = n_saves,
+        )
+
+        analysis_file = joinpath(
+            project_dir, 
+            string("N", polydeg, "M", cells_per_dimension, "_dt", dt),
+            "analysis.dat"
+        )
+        
+        data = CSV.File(
+            analysis_file;
+            header = true,
+            delim = ' ',
+            ignorerepeated = true,
+        )
+
+        # Extract mass and entropy errors
+        mass_initial = data.mass[1]
+        mass_final = data.mass[end]
+        mass_error = abs(mass_final - mass_initial) / abs(mass_initial)
+        entropy_initial = data.entropy[1]
+        entropy_final = data.entropy[end]
+        entropy_error = abs(entropy_final - entropy_initial) / abs(entropy_initial)
+
+        push!(dt_values, dt)
+        push!(entropy_errors, entropy_error)
+        push!(mass_errors, mass_error)
+
+        # Write results
+        open(joinpath(project_dir, "timestep_analysis.dat"), "a") do io
+            if iter == 1 # first iteration, no order calculation
+                Printf.format(
+                    io,
+                    fmt1,
+                    polydeg,
+                    cells_per_dimension,
+                    dt,
+                    mass_initial,
+                    mass_final,
+                    mass_error,
+                    "missing",
+                    entropy_initial,
+                    entropy_final,
+                    entropy_error,
+                    "missing",
+                )
+            else
+                mass_order = log(mass_errors[end] / mass_errors[end-1]) / 
+                                log(dt_values[end] / dt_values[end-1])
+                entropy_order = log(entropy_errors[end] / entropy_errors[end-1]) / 
+                                log(dt_values[end] / dt_values[end-1])
+                Printf.format(
+                    io,
+                    fmt2,
+                    polydeg,
+                    cells_per_dimension,
+                    dt,
+                    mass_initial,
+                    mass_final,
+                    mass_error,
+                    mass_order,
+                    entropy_initial,
+                    entropy_final,
+                    entropy_error,
+                    entropy_order,
+                )
+            end
+        end
+        println("\n\n")
+        println("#"^100)
+    end
 end
 
 function plot_convergence(
@@ -163,8 +353,10 @@ function plot_convergence(
     styles = [:dash, :solid],
     colors = 1:length(labels),
     file = "analysis.dat",
+    select_cols = collect(1:7),
     xkey = "resolution_km",
     ykey = "l2_height_error",
+    ykeys = nothing,
     ynorm = nothing,
     legend = true,
     xlabel = LaTeXString("Nominal resolution (km)"),
@@ -196,17 +388,24 @@ function plot_convergence(
     kwargs...,
 )
 
+    mkpath(plots_dir)
+
     # Load data from file 
     set_theme!(Theme(font = font))
-    data = Dict(
-        dir => CSV.File(
-            joinpath(dir, file);
-            header = true,
-            delim = ' ',
-            select = collect(1:7),
-            ignorerepeated = true,
-        ) for dir in dirs
-    )
+    data = Dict(dir => begin
+        path = joinpath(dir, file)
+        if isnothing(select_cols)
+            CSV.File(path; header = true, delim = ' ', ignorerepeated = true)
+        else
+            CSV.File(
+                path;
+                header = true,
+                delim = ' ',
+                select = select_cols,
+                ignorerepeated = true,
+            )
+        end
+    end for dir in dirs)
 
     # Set up figure parameters
     f = Figure(size = size, fontsize = fontsize, labelfontsize = legendfontsize)
@@ -233,22 +432,48 @@ function plot_convergence(
         ylims!(ax, ylims)
     end
 
-    # Draw lines for each directory
-    for (dir, label, style, color) in zip(dirs, labels, styles, colors)
-        if !isnothing(ynorm)
-            normalization = data[dir][ynorm]
-        else
-            normalization = 1.0
+    # Draw lines
+    if isnothing(ykeys)
+        # Standard mode: one curve per directory
+        for (dir, label, style, color) in zip(dirs, labels, styles, colors)
+            if !isnothing(ynorm)
+                normalization = data[dir][ynorm]
+            else
+                normalization = 1.0
+            end
+            scatterlines!(
+                ax,
+                data[dir][xkey],
+                data[dir][ykey] ./ normalization,
+                label = label,
+                linestyle = style,
+                linewidth = linewidth,
+                color = Makie.wong_colors()[color],
+            )
         end
-        scatterlines!(
-            ax,
-            data[dir][xkey],
-            data[dir][ykey] ./ normalization,
-            label = label,
-            linestyle = style,
-            linewidth = linewidth,
-            color = Makie.wong_colors()[color],
-        )
+    else
+        # Multi-y mode: multiple curves from a single directory
+        if length(dirs) != 1
+            error("plot_convergence: ykeys requires exactly one directory in dirs")
+        end
+        ykey = ykeys[1] # for triangles
+        dir = first(dirs)
+        for (yk, label, style, color) in zip(ykeys, labels, styles, colors)
+            if !isnothing(ynorm)
+                normalization = data[dir][ynorm]
+            else
+                normalization = 1.0
+            end
+            scatterlines!(
+                ax,
+                data[dir][xkey],
+                data[dir][yk] ./ normalization,
+                label = label,
+                linestyle = style,
+                linewidth = linewidth,
+                color = Makie.wong_colors()[color],
+            )
+        end
     end
 
     # Make convergence triangle
@@ -329,6 +554,7 @@ function plot_evolution(
     line_order = [2, 1],
     plots_dir = PLOTS_DIR,
     plot_name = nothing,
+    plot_absolute = false,
     labels = [LaTeXString("EC"), LaTeXString("ES")],
     styles = [:dot, :solid],
     colors = 1:length(labels),
@@ -350,6 +576,7 @@ function plot_evolution(
     xlims = nothing,
     ylims = nothing,
     linewidth = 2,
+    verbose = false,
     legend = true,
     legend_position = (:right, :bottom),
     exponent_text = nothing,
@@ -368,9 +595,14 @@ function plot_evolution(
     inset_xlims = nothing,
     inset_xticks = nothing,
     inset_yticks = nothing,
+    inset_halign = 0.025,
+    inset_valign = 0.96,
+    inset_yaxisposition = :right,
     show_in_inset = [2],
     kwargs...,
 )
+
+    mkpath(plots_dir)
 
     # Load data from file 
     set_theme!(Theme(font = font))
@@ -434,11 +666,17 @@ function plot_evolution(
         else
             xvalues = data[dir][xkey]
         end
-        if relative
-            yvalues = ((data[dir][ykey] .- data[dir][ykey][1]) / data[dir][ykey][1]) / ynorm
+        yvalues = if relative
+            (data[dir][ykey] .- data[dir][ykey][1]) / data[dir][ykey][1]
         else
-            yvalues = data[dir][ykey] / ynorm
+            data[dir][ykey]
         end
+
+        if plot_absolute
+            yvalues = abs.(yvalues)
+        end
+
+        yvalues = yvalues / ynorm
         lines!(
             ax,
             xvalues,
@@ -446,11 +684,27 @@ function plot_evolution(
             label = label,
             linestyle = style,
             linewidth = linewidth,
-            color = Makie.Cycled(color),
+            color = (color isa Integer ? Makie.Cycled(color) : color),
         )
-        println("dir: ", dir, "\nmin: ", minimum(yvalues), ", max: ", maximum(yvalues))
+        if verbose
+            finite_y = filter(isfinite, yvalues)
+            if isempty(finite_y)
+                println("dir: ", dir, "\nmin/max: (no finite y-values)")
+            else
+                println(
+                    "dir: ",
+                    dir,
+                    "\nmin: ",
+                    minimum(finite_y),
+                    ", max: ",
+                    maximum(finite_y),
+                )
+            end
+        end
     end
-    println("\n")
+    if verbose
+        println("\n")
+    end
 
     if !isnothing(exponent_text)
         Label(f[1, 1, Top()], halign = :left, exponent_text)
@@ -461,14 +715,14 @@ function plot_evolution(
             f[1, 1],
             width = Relative(0.3),
             height = Relative(0.4),
-            halign = 0.025,
-            valign = 0.96,
+            halign = inset_halign,
+            valign = inset_valign,
             xticklabelfont = xticklabelfont,
             yticklabelfont = yticklabelfont,
-            yaxisposition = :right,
+            yaxisposition = inset_yaxisposition,
             tellheight = false,
             tellwidth = false,
-            alignmode = Mixed( # all sides → 0 px
+            alignmode = Mixed(
                 left = Makie.Protrusion(0),
                 right = Makie.Protrusion(0),
                 bottom = Makie.Protrusion(0),
@@ -490,12 +744,17 @@ function plot_evolution(
             else
                 xvalues = data[dir][xkey]
             end
+            
             if relative
-                yvalues =
-                    ((data[dir][ykey] .- data[dir][ykey][1]) / data[dir][ykey][1]) / ynorm
+                yvalues = (data[dir][ykey] .- data[dir][ykey][1]) / data[dir][ykey][1]
             else
-                yvalues = data[dir][ykey] / ynorm
+                yvalues = data[dir][ykey]
             end
+
+            if plot_absolute
+                yvalues = abs.(yvalues)
+            end
+                
             lines!(
                 ax_inset,
                 xvalues,
@@ -503,17 +762,21 @@ function plot_evolution(
                 label = label,
                 linestyle = style,
                 linewidth = linewidth,
-                color = Makie.Cycled(color),
+                color = (color isa Integer ? Makie.Cycled(color) : color),
             )
             translate!(ax_inset.blockscene, 0, 0, 150)
         end
     end
 
-
     if legend
+        legend_plots = if isnothing(vlinepositions)
+            ax.scene.plots
+        else
+            ax.scene.plots[(length(vlinepositions) * 2 + 1):end]
+        end
         axislegend(
             ax,
-            ax.scene.plots[(length(vlinepositions)*2+1):end][line_order],
+            legend_plots[line_order],
             labels;
             position = legend_position,
             font = legendfont,
@@ -560,844 +823,6 @@ end
         x,
         equations,
     )
-end
-
-# Specialize the L2 and Linf error calculation, since Trixi.jl does not normalize the same 
-# way as Williamson et al. (1992) and other geophysical fluid dynamics papers
-function Trixi.calc_error_norms(
-    func,
-    u,
-    t,
-    analyzer,
-    mesh::P4estMesh{2},
-    equations::TrixiAtmo.AbstractCovariantShallowWaterEquations2D,
-    initial_condition,
-    dg::DGSEM,
-    cache,
-    cache_analysis,
-)
-    (; weights) = dg.basis
-    (; node_coordinates) = cache.elements
-    (; aux_node_vars) = cache.auxiliary_variables
-
-    # Set up data structures
-    l2_error = zero(
-        func(
-            Trixi.get_node_vars(u, equations, dg, 1, 1, 1),
-            TrixiAtmo.get_node_aux_vars(aux_node_vars, equations, dg, 1, 1, 1),
-            equations,
-        ),
-    )
-    linf_error = copy(l2_error)
-    l2_normalization = copy(l2_error)
-    linf_normalization = copy(l2_error)
-
-    # Iterate over all elements for error calculations
-    for element in eachelement(dg, cache)
-
-        # Calculate errors at each volume quadrature node
-        for j in eachnode(dg), i in eachnode(dg)
-            x_node = Trixi.get_node_coords(node_coordinates, equations, dg, i, j, element)
-
-            # Convert exact solution into contravariant components using geometric
-            # information stored in aux vars
-            aux_node =
-                TrixiAtmo.get_node_aux_vars(aux_node_vars, equations, dg, i, j, element)
-            u_exact = initial_condition(x_node, t, aux_node, equations)
-
-            # Compute the difference as usual
-            func_exact = func(u_exact, aux_node, equations)
-            u_numerical = Trixi.get_node_vars(u, equations, dg, i, j, element)
-            diff = func(u_numerical, aux_node, equations) - func_exact
-
-            # For the L2 error, integrate with respect to area element stored in aux vars 
-            J = TrixiAtmo.area_element(aux_node, equations)
-            l2_error += diff .^ 2 * (weights[i] * weights[j] * J)
-
-            # Compute Linf error as usual
-            linf_error = @. max(linf_error, abs(diff))
-
-            # Compute normalization
-            linf_normalization = @. max(linf_normalization, abs(func_exact))
-            l2_normalization += func_exact .^ 2 * (weights[i] * weights[j] * J)
-        end
-    end
-
-    # Normalize both errors 
-    l2_error = @. sqrt(l2_error / l2_normalization)
-    linf_error = @. linf_error / linf_normalization
-
-    return l2_error, linf_error
-end
-
-# Potential enstrophy
-function Trixi.analyze(
-    ::typeof(pot_enst),
-    du,
-    u,
-    t,
-    mesh::P4estMesh{2},
-    equations::TrixiAtmo.AbstractCovariantShallowWaterEquations2D,
-    dg::DGSEM,
-    cache,
-)
-    (; aux_node_vars,) = cache.auxiliary_variables
-    (; node_coordinates,) = cache.elements
-
-    Trixi.integrate_via_indices(
-        u,
-        mesh,
-        equations,
-        dg,
-        cache,
-        du,
-    ) do u, i, j, element, equations, dg, du_node
-        x_node = Trixi.get_node_coords(node_coordinates, equations, dg, i, j, element)
-        u_node = Trixi.get_node_vars(u, equations, dg, i, j, element)
-
-        h = Trixi.waterheight(u_node, equations)
-        f = 2 * equations.rotation_rate * x_node[3] / norm(x_node)  # 2Ωsinθ
-        zeta = TrixiAtmo.calc_vorticity_node(u, equations, dg, cache, i, j, element)
-        (zeta + f)^2 / h
-    end
-end
-
-
-function run_unsteady_solid_body_rotation()
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        5,
-        polydeg = 3,
-        initial_condition = initial_condition_unsteady_solid_body_rotation,
-        auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
-        surface_flux = surface_flux_ec,
-        initial_cells_per_dimension = 4,
-        identifier = "_ec_N3",
-        interval = 50,
-        tspan = (0.0, 5.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 50,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        5,
-        polydeg = 3,
-        initial_condition = initial_condition_unsteady_solid_body_rotation,
-        auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
-        surface_flux = surface_flux_es,
-        initial_cells_per_dimension = 4,
-        identifier = "_es_N3",
-        interval = 50,
-        tspan = (0.0, 5.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 50,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        5,
-        polydeg = 4,
-        initial_condition = initial_condition_unsteady_solid_body_rotation,
-        auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
-        surface_flux = surface_flux_ec,
-        initial_cells_per_dimension = 4,
-        identifier = "_ec_N4",
-        interval = 50,
-        tspan = (0.0, 5.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 50,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        5,
-        polydeg = 4,
-        initial_condition = initial_condition_unsteady_solid_body_rotation,
-        auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
-        surface_flux = surface_flux_es,
-        initial_cells_per_dimension = 4,
-        identifier = "_es_N4",
-        interval = 50,
-        tspan = (0.0, 5.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 50,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        1,
-        polydeg = 2:10,
-        initial_condition = initial_condition_unsteady_solid_body_rotation,
-        auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
-        surface_flux = surface_flux_ec,
-        initial_cells_per_dimension = 4,
-        identifier = "_ec_p_refine",
-        interval = 50,
-        tspan = (0.0, 5.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 50,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        1,
-        polydeg = 2:10,
-        initial_condition = initial_condition_unsteady_solid_body_rotation,
-        auxiliary_field = bottom_topography_unsteady_solid_body_rotation,
-        surface_flux = surface_flux_es,
-        initial_cells_per_dimension = 4,
-        identifier = "_es_p_refine",
-        interval = 50,
-        tspan = (0.0, 5.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 50,
-    )
-end
-
-
-function run_isolated_mountain()
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        1,
-        polydeg = 3,
-        initial_condition = initial_condition_well_balanced,
-        auxiliary_field = bottom_topography_isolated_mountain,
-        surface_flux = surface_flux_ec,
-        initial_cells_per_dimension = 20,
-        identifier = "_ec",
-        interval = 50,
-        tspan = (0.0, 15.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 150,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        1,
-        polydeg = 3,
-        initial_condition = initial_condition_well_balanced,
-        auxiliary_field = bottom_topography_isolated_mountain,
-        surface_flux = surface_flux_es,
-        initial_cells_per_dimension = 20,
-        identifier = "_es",
-        interval = 50,
-        tspan = (0.0, 15.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 150,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        1,
-        polydeg = 3,
-        initial_condition = initial_condition_isolated_mountain,
-        auxiliary_field = bottom_topography_isolated_mountain,
-        surface_flux = surface_flux_ec,
-        initial_cells_per_dimension = 20,
-        identifier = "_ec",
-        interval = 50,
-        tspan = (0.0, 15.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 150,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        1,
-        polydeg = 3,
-        initial_condition = initial_condition_isolated_mountain,
-        auxiliary_field = bottom_topography_isolated_mountain,
-        surface_flux = surface_flux_es,
-        initial_cells_per_dimension = 20,
-        identifier = "_es",
-        interval = 50,
-        tspan = (0.0, 15.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 150,
-    )
-end
-
-function run_barotropic_instability()
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        3,
-        polydeg = 3,
-        initial_condition = initial_condition_steady_barotropic_instability,
-        auxiliary_field = nothing,
-        surface_flux = surface_flux_ec,
-        initial_cells_per_dimension = 16,
-        identifier = "_ec",
-        interval = 50,
-        tspan = (0.0, 12.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 120,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        3,
-        polydeg = 3,
-        initial_condition = initial_condition_steady_barotropic_instability,
-        auxiliary_field = nothing,
-        surface_flux = surface_flux_es,
-        initial_cells_per_dimension = 16,
-        identifier = "_es",
-        interval = 50,
-        tspan = (0.0, 12.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 120,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        3,
-        polydeg = 3,
-        initial_condition = initial_condition_barotropic_instability,
-        auxiliary_field = nothing,
-        surface_flux = surface_flux_ec,
-        initial_cells_per_dimension = 16,
-        identifier = "_ec",
-        interval = 50,
-        tspan = (0.0, 12.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 120,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        3,
-        polydeg = 3,
-        initial_condition = initial_condition_barotropic_instability,
-        auxiliary_field = nothing,
-        surface_flux = surface_flux_es,
-        initial_cells_per_dimension = 16,
-        identifier = "_es",
-        interval = 50,
-        tspan = (0.0, 12.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 120,
-    )
-end
-
-function run_rossby_haurwitz()
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        1,
-        polydeg = 3,
-        initial_condition = initial_condition_rossby_haurwitz,
-        auxiliary_field = nothing,
-        surface_flux = surface_flux_ec,
-        initial_cells_per_dimension = 16,
-        identifier = "_ec_N3",
-        interval = 50,
-        tspan = (0.0, 28.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 280,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        1,
-        polydeg = 3,
-        initial_condition = initial_condition_rossby_haurwitz,
-        auxiliary_field = nothing,
-        surface_flux = surface_flux_es,
-        initial_cells_per_dimension = 16,
-        identifier = "_es_N3",
-        interval = 50,
-        tspan = (0.0, 28.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 280,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water_standard_dg.jl",
-        1,
-        polydeg = 3,
-        initial_condition = initial_condition_rossby_haurwitz,
-        auxiliary_field = nothing,
-        initial_cells_per_dimension = 16,
-        identifier = "_standard_N3",
-        interval = 50,
-        tspan = (0.0, 28.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 280,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        1,
-        polydeg = 6,
-        initial_condition = initial_condition_rossby_haurwitz,
-        auxiliary_field = nothing,
-        surface_flux = surface_flux_ec,
-        initial_cells_per_dimension = 8,
-        identifier = "_ec_N6",
-        interval = 50,
-        tspan = (0.0, 28.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 280,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water.jl",
-        1,
-        polydeg = 6,
-        initial_condition = initial_condition_rossby_haurwitz,
-        auxiliary_field = nothing,
-        surface_flux = surface_flux_es,
-        initial_cells_per_dimension = 8,
-        identifier = "_es_N6",
-        interval = 50,
-        tspan = (0.0, 28.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 280,
-    )
-
-    run_driver(
-        "elixirs/elixir_spherical_shallow_water_standard_dg.jl",
-        1,
-        polydeg = 6,
-        initial_condition = initial_condition_rossby_haurwitz,
-        auxiliary_field = nothing,
-        initial_cells_per_dimension = 8,
-        identifier = "_standard_N6",
-        interval = 50,
-        tspan = (0.0, 28.0 * SECONDS_PER_DAY),
-        cfl = 0.1,
-        n_saves = 280,
-    )
-end
-
-function plot_unsteady_solid_body_rotation()
-    # Figure 2a
-    plot_convergence(
-        [
-            "../results/20250713_unsteady_solid_body_rotation_ec_N3/",
-            "../results/20250713_unsteady_solid_body_rotation_es_N3/",
-        ],
-        plot_name = "unsteady_solid_body_rotation_convergence_N3.pdf",
-        triangle_bottom_order = 4,
-        triangle_top_order = 3,
-    )
-    # Figure 2b
-    plot_convergence(
-        [
-            "../results/20250713_unsteady_solid_body_rotation_ec_N4/",
-            "../results/20250713_unsteady_solid_body_rotation_es_N4/",
-        ],
-        plot_name = "unsteady_solid_body_rotation_convergence_N4.pdf",
-        triangle_bottom_order = 5,
-        triangle_top_order = 5,
-    )
-
-    # Figure 2c
-    plot_convergence(
-        [
-            "../results/20250713_unsteady_solid_body_rotation_ec_p_refine/",
-            "../results/20250714_unsteady_solid_body_rotation_es_p_refine/",
-        ],
-        triangle_bottom = false,
-        triangle_top = false,
-        plot_name = "unsteady_solid_body_rotation_p_refine_M4.pdf",
-        xkey = "N",
-        xlabel = L"Polynomial degree $N$",
-        xticks = collect(2:10),
-        xscale = identity,
-        legend_position = (:left, :bottom),
-    )
-end
-
-function plot_isolated_mountain()
-    # Figure 3a
-    plot_evolution(
-        [
-            "../results/20250713_well_balanced_ec/N3M20",
-            "../results/20250713_well_balanced_es/N3M20",
-        ],
-        plot_name = "well_balanced_l2_h_evolution_N3M20.pdf",
-        ykey = "l2_h",
-        legend_position = (:left, :top),
-        relative = false,
-        ylabel = L"Normalized $L^2$ height error",
-        xlims = [0, 15],
-        ylims = [-0.2, 5],
-        xticks = [0, 5, 10, 15],
-        ynorm = 1e-14,
-        exponent_text = L"\times 10^{-14}",
-    )
-
-    # Figure 3b
-    plot_evolution(
-        [
-            "../results/20250713_isolated_mountain_ec/N3M20",
-            "../results/20250713_isolated_mountain_es/N3M20",
-        ],
-        plot_name = "isolated_mountain_mass_evolution_N3M20.pdf",
-        legend_position = (:left, :top),
-        xlims = [0, 15],
-        xticks = [0, 5, 10, 15],
-        ylims = [-0.85, 4.5],
-        ykey = "mass",
-        ylabel = LaTeXString("Normalized mass change"),
-        ynorm = 1e-14,
-        exponent_text = L"\times 10^{-14}",
-    )
-
-    # Figure 3c
-    plot_evolution(
-        [
-            "../results/20250713_isolated_mountain_ec/N3M20",
-            "../results/20250713_isolated_mountain_es/N3M20",
-        ],
-        plot_name = "isolated_mountain_entropy_evolution_N3M20.pdf",
-        legend_position = (:left, :bottom),
-        xlims = [0, 15],
-        xticks = [0, 5, 10, 15],
-        ylims = [-8.25, 0.25],
-        ykey = "entropy",
-        ynorm = 1e-8,
-        exponent_text = L"\times 10^{-8}",
-    )
-end
-
-function plot_barotropic_instability()
-    # Figure 5a
-    plot_evolution(
-        [
-            "../results/20250525_steady_barotropic_instability_ec_M16/N3M16",
-            "../results/20250525_steady_barotropic_instability_es_M16/N3M16",
-        ],
-        plot_name = "steady_barotropic_instability_l2_h_evolution_N3M16.pdf",
-        ykey = "l2_h",
-        legend_position = (:left, :top),
-        relative = false,
-        ynorm = 1e-3,
-        exponent_text = L"\times 10^{-3}",
-        ylabel = L"Normalized $L^2$ height error",
-        xticks = [0, 3, 6, 9, 12],
-        xlims = [0, 12],
-        ylims = [-1, 12],
-    )
-
-    # Figure 5b
-    plot_evolution(
-        [
-            "../results/20250520_steady_barotropic_instability_ec/N3M32",
-            "../results/20250520_steady_barotropic_instability_es/N3M32",
-        ],
-        plot_name = "steady_barotropic_instability_l2_h_evolution_N3M32.pdf",
-        ykey = "l2_h",
-        legend_position = (:left, :top),
-        relative = false,
-        ynorm = 1e-3,
-        exponent_text = L"\times 10^{-3}",
-        ylabel = L"Normalized $L^2$ height error",
-        xticks = [0, 3, 6, 9, 12],
-        xlims = [0, 12],
-        ylims = [-1, 12],
-    )
-
-    # Figure 5c
-    plot_evolution(
-        [
-            "../results/20250520_steady_barotropic_instability_ec/N3M64",
-            "../results/20250520_steady_barotropic_instability_es/N3M64",
-        ],
-        plot_name = "steady_barotropic_instability_l2_h_evolution_N3M64.pdf",
-        ykey = "l2_h",
-        legend_position = (:left, :top),
-        relative = false,
-        ynorm = 1e-3,
-        exponent_text = L"\times 10^{-3}",
-        ylabel = L"Normalized $L^2$ height error",
-        xticks = [0, 3, 6, 9, 12],
-        xlims = [0, 12],
-        ylims = [-1, 12],
-    )
-
-    # Figure 5d
-    plot_evolution(
-        [
-            "../results/20250525_steady_barotropic_instability_ec_M16/N3M16",
-            "../results/20250525_steady_barotropic_instability_es_M16/N3M16",
-        ],
-        plot_name = "steady_barotropic_instability_entropy_evolution_N3M16.pdf",
-        legend_position = (:left, :bottom),
-        ykey = "entropy",
-        ynorm = 1e-5,
-        exponent_text = L"\times 10^{-8}",
-        xticks = [0, 3, 6, 9, 12],
-        xlims = [0, 12],
-        ylims = [-5, 0.25],
-    )
-
-    # Figure 5e
-    plot_evolution(
-        [
-            "../results/20250520_steady_barotropic_instability_ec/N3M32",
-            "../results/20250520_steady_barotropic_instability_es/N3M32",
-        ],
-        plot_name = "steady_barotropic_instability_entropy_evolution_N3M32.pdf",
-        legend_position = (:left, :bottom),
-        ykey = "entropy",
-        ynorm = 1e-5,
-        exponent_text = L"\times 10^{-8}",
-        xticks = [0, 3, 6, 9, 12],
-        xlims = [0, 12],
-        ylims = [-5, 0.25],
-    )
-
-    # Figure 5f
-    plot_evolution(
-        [
-            "../results/20250520_steady_barotropic_instability_ec/N3M64",
-            "../results/20250520_steady_barotropic_instability_es/N3M64",
-        ],
-        plot_name = "steady_barotropic_instability_entropy_evolution_N3M64.pdf",
-        legend_position = (:left, :bottom),
-        ykey = "entropy",
-        ynorm = 1e-5,
-        exponent_text = L"\times 10^{-8}",
-        xticks = [0, 3, 6, 9, 12],
-        xlims = [0, 12],
-        ylims = [-5, 0.25],
-    )
-end
-
-function plot_rossby_haurwitz()
-    # Figure 8a
-    plot_evolution(
-        [
-            "../results/20250826_rossby_haurwitz_ec_N3/N3M16/",
-            "../results/20250826_rossby_haurwitz_es_N3/N3M16/",
-            "../results/20250826_rossby_haurwitz_standard_N3/N3M16/",
-        ],
-        line_order = [2, 1, 3],
-        plot_name = "rossby_haurwitz_entropy_evolution_N3M16.pdf",
-        labels = [LaTeXString("EC"), LaTeXString("ES"), LaTeXString("Standard")],
-        styles = [:dash, :solid, :dot],
-        ykey = "entropy",
-        ynorm = 1e-6,
-        exponent_text = L"\times 10^{-6}",
-        xticks = [0, 7, 14, 21, 28],
-        legend_position = (:right, :top),
-        xlims = [0, 28],
-        ylims = [-5, 5],
-        vlinepositions = [18.71370, 26.03088], # crash times
-        size = (500, 350),
-    )
-
-    # Figure 8b
-    plot_evolution(
-        [
-            "../results/20250905_rossby_haurwitz_ec_N6/N6M8/",
-            "../results/20250905_rossby_haurwitz_es_N6/N6M8/",
-            "../results/20250905_rossby_haurwitz_standard_N6/N6M8/",
-        ],
-        line_order = [2, 1, 3],
-        plot_name = "rossby_haurwitz_entropy_evolution_N6M8.pdf",
-        labels = [LaTeXString("EC"), LaTeXString("ES"), LaTeXString("Standard")],
-        styles = [:dash, :solid, :dot],
-        ykey = "entropy",
-        ynorm = 1e-6,
-        exponent_text = L"\times 10^{-6}",
-        xticks = [0, 7, 14, 21, 28],
-        legend_position = (:right, :top),
-        xlims = [0, 28],
-        ylims = [-5, 5],
-        vlinepositions = [13.39448, 18.01256], # crash times
-        size = (500, 350),
-    )
-    # Figure 8c
-    plot_evolution(
-        [
-            "../results/20250826_rossby_haurwitz_ec_N3/N3M16/",
-            "../results/20250826_rossby_haurwitz_es_N3/N3M16/",
-            "../results/20250826_rossby_haurwitz_standard_N3/N3M16/",
-        ],
-        line_order = [2, 1, 3],
-        plot_name = "rossby_haurwitz_enstrophy_evolution_N3M16.pdf",
-        labels = [LaTeXString("EC"), LaTeXString("ES"), LaTeXString("Standard")],
-        styles = [:dash, :solid, :dot],
-        ykey = "pot_enst",
-        ylabel = LaTeXString("Normalized potential enstrophy change"),
-        xticks = [0, 7, 14, 21, 28],
-        legend_position = (:right, :top),
-        xlims = [0, 28],
-        ylims = [-2, 15],
-        vlinepositions = [18.71370, 26.03088], # crash times
-        size = (500, 350),
-        inset_ylims = [-0.0011, 0.0001],
-        inset_xlims = [0, 28],
-        inset_xticks = [0, 7, 14, 21, 28],
-        inset_yticks = [-0.001, 0],
-        show_in_inset = [2],
-    )
-
-    # Figure 8d
-    plot_evolution(
-        [
-            "../results/20250905_rossby_haurwitz_ec_N6/N6M8/",
-            "../results/20250905_rossby_haurwitz_es_N6/N6M8/",
-            "../results/20250905_rossby_haurwitz_standard_N6/N6M8/",
-        ],
-        line_order = [2, 1, 3],
-        plot_name = "rossby_haurwitz_enstrophy_evolution_N6M8.pdf",
-        labels = [LaTeXString("EC"), LaTeXString("ES"), LaTeXString("Standard")],
-        styles = [:dash, :solid, :dot],
-        ykey = "pot_enst",
-        ylabel = LaTeXString("Normalized potential enstrophy change"),
-        xticks = [0, 7, 14, 21, 28],
-        legend_position = (:right, :top),
-        xlims = [0, 28],
-        ylims = [-2, 15],
-        vlinepositions = [13.39448, 18.01256], # crash times
-        size = (500, 350),
-        inset_ylims = [-0.0011, 0.0001],
-        inset_xlims = [0, 28],
-        inset_xticks = [0, 7, 14, 21, 28],
-        inset_yticks = [-0.001, 0],
-        show_in_inset = [2],
-    )
-end
-
-function run_timestep_convergence(
-    elixir::AbstractString,
-    iterations = 5, # number of times to halve the time step
-    RealT = Float64;
-    results_dir = RESULTS_DIR,
-    polydeg = 3,
-    cells_per_dimension = 20,
-    initial_condition = initial_condition_isolated_mountain,
-    auxiliary_field = bottom_topography_isolated_mountain,
-    surface_flux = surface_flux_ec,
-    tspan = (0.0, 15.0 * SECONDS_PER_DAY),
-    initial_dt = 320.0, # initial time step in seconds
-    date = Dates.format(today(), dateformat"yyyymmdd"),
-    identifier = "_timestep_study",
-    kwargs...,
-)
-
-    mod = @__MODULE__
-
-    # Get name for project
-    ic_name = replace(string(initial_condition), r"^initial_condition_" => "")
-    project_dir = mkpath(joinpath(results_dir, string(date, "_", ic_name, identifier)))
-    println("Project directory: ", project_dir)
-
-    # Format output file and write headers
-    fmt1 = Printf.Format(
-        "%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^3 * "missing" * "\n",
-    ) # no EOC for first iteration
-    fmt2 = Printf.Format(
-        "%-4d" * "%-4d" * "%-2.5f " * "%-25.17e"^3 * "%-9.2f" * "\n",
-    )
-    headers = [
-        "N   ",
-        "M   ",
-        "dt        ",
-        "entropy_error            ",
-        "entropy_initial          ",
-        "entropy_final            ",
-        "ent_order",
-    ]
-    open(joinpath(project_dir, "timestep_analysis.dat"), "w") do io
-        println(
-            io,
-            string(
-                headers...,
-            ),
-        )
-    end
-
-    dt_values = RealT[]
-    entropy_errors = RealT[]
-
-    # Run simulations with decreasing time steps
-    for (iter, dt_factor) in enumerate(2.0 .^ ((0:iterations-1)))
-        dt = initial_dt / dt_factor
-
-        # Run simulation with fixed time step (no CFL-based adaptation)
-        trixi_include(
-            mod,
-            elixir;
-            kwargs...,
-            output_dir = joinpath(project_dir, string("N", polydeg, "M", cells_per_dimension, "_dt", dt)),
-            initial_condition = initial_condition,
-            auxiliary_field = auxiliary_field,
-            surface_flux = surface_flux,
-            polydeg = polydeg,
-            cells_per_dimension = cells_per_dimension,
-            tspan = tspan,
-            dt = dt,
-            cfl = nothing, # disable CFL-based time stepping
-            interval = 50, # reduce analysis frequency
-            n_saves = 2, # save only initial and final states
-        )
-
-        # Extract entropy values from analysis file
-        analysis_file = joinpath(
-            project_dir, 
-            string("N", polydeg, "M", cells_per_dimension, "_dt", dt),
-            "analysis.dat"
-        )
-        
-        # Read entropy values
-        data = CSV.File(
-            analysis_file;
-            header = true,
-            delim = ' ',
-            ignorerepeated = true,
-        )
-        entropy_initial = data.entropy[1]
-        entropy_final = data.entropy[end]
-
-        # relative entropy error
-        entropy_error = abs(entropy_final - entropy_initial) / abs(entropy_initial)
-
-        append!(dt_values, dt)
-        append!(entropy_errors, entropy_error)
-
-        # Write results
-        open(joinpath(project_dir, "timestep_analysis.dat"), "a") do io
-            if iter == 1 # first iteration, no order calculation
-                Printf.format(
-                    io,
-                    fmt1,
-                    polydeg,
-                    cells_per_dimension,
-                    dt,
-                    entropy_error,
-                    entropy_initial,
-                    entropy_final,
-                )
-            else
-                entropy_order = log(entropy_errors[end] / entropy_errors[end-1]) / 
-                                log(dt_values[end] / dt_values[end-1])
-                Printf.format(
-                    io,
-                    fmt2,
-                    polydeg,
-                    cells_per_dimension,
-                    dt,
-                    entropy_error,
-                    entropy_initial,
-                    entropy_final,
-                    entropy_order,
-                )
-            end
-        end
-
-        println("\n\n")
-        println("#"^100)
-    end
-
-    println("\nTimestep convergence study completed!")
-    println("Results saved to: ", project_dir)
-    
-    return project_dir
 end
 
 end # module SphericalShallowWater
