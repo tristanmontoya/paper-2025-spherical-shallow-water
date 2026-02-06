@@ -17,6 +17,8 @@ tspan = (0.0, 5.0 * SECONDS_PER_DAY)
 output_dir = "out"
 cfl = 0.1
 dt_initial = 100.0
+alg = CarpenterKennedy2N54(williamson_condition = false, thread = Trixi.True())
+adapt_timestep = true
 
 ###############################################################################
 # Custom outputs
@@ -95,9 +97,9 @@ save_solution = SaveSolutionCallback(
     solution_variables = cons2prim_and_vorticity,
 )
 
-if !isnothing(cfl)
+if adapt_timestep
     # The StepsizeCallback handles the re-calculation of the maximum Δt after each time step
-    stepsize_callback = StepsizeCallback(cfl = 0.1)
+    stepsize_callback = StepsizeCallback(cfl = cfl)
 
     # Create a CallbackSet to collect all callbacks
     callbacks =
@@ -111,8 +113,9 @@ end
 # Set up integrator
 integrator = init(
     ode,
-    CarpenterKennedy2N54(williamson_condition = false, thread = Trixi.True()),
+    alg,
     dt = dt_initial,
+    adaptive = false,
     maxiters = 1e8,
     save_everystep = false,
     callback = callbacks,

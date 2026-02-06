@@ -7,14 +7,16 @@ using OrdinaryDiffEq, Trixi, TrixiAtmo
 ###############################################################################
 # Parameters
 
-initial_condition = initial_condition_unsteady_solid_body_rotation
-auxiliary_field = bottom_topography_unsteady_solid_body_rotation
+initial_condition = initial_condition_barotropic_instability
 polydeg = 3
 cells_per_dimension = 2
 n_saves = 50
 tspan = (0.0, 5.0 * SECONDS_PER_DAY)
 output_dir = "out"
 cfl = 0.1
+dt_initial = 100.0
+alg = CarpenterKennedy2N54(williamson_condition = false, thread = Trixi.True())
+adapt_timestep = true
 
 ###############################################################################
 # Custom outputs
@@ -87,9 +89,9 @@ save_solution = SaveSolutionCallback(
     solution_variables = cons2prim_and_vorticity,
 )
 
-if !isnothing(cfl)
+if adapt_timestep
     # The StepsizeCallback handles the re-calculation of the maximum Δt after each time step
-    stepsize_callback = StepsizeCallback(cfl = 0.1)
+    stepsize_callback = StepsizeCallback(cfl = cfl)
 
     # Create a CallbackSet to collect all callbacks
     callbacks =
@@ -104,8 +106,9 @@ end
 # Set up integrator
 integrator = init(
     ode,
-    CarpenterKennedy2N54(williamson_condition = false, thread = Trixi.True()),
-    dt = 100.0,
+    alg,
+    dt = dt_initial,
+    adaptive = false,
     maxiters = 1e8,
     save_everystep = false,
     callback = callbacks,

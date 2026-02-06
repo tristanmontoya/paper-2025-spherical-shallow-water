@@ -229,18 +229,18 @@ function run_barotropic_instability()
     )
 
     run_driver( # New for revised version
-           "elixirs/elixir_spherical_shallow_water_standard_dg.jl",
-           1,
-           polydeg = 3,
-           initial_condition = initial_condition_barotropic_instability,
-           auxiliary_field = nothing,
-           initial_cells_per_dimension = 64,
-           identifier = "_standard",
-           interval = 50,
-           tspan = (0.0, 12.0 * SECONDS_PER_DAY),
-           cfl = 0.1,
-           n_saves = 120,
-       )
+        "elixirs/elixir_spherical_shallow_water_standard_dg.jl",
+        1,
+        polydeg = 3,
+        initial_condition = initial_condition_barotropic_instability,
+        auxiliary_field = nothing,
+        initial_cells_per_dimension = 64,
+        identifier = "_standard",
+        interval = 50,
+        tspan = (0.0, 12.0 * SECONDS_PER_DAY),
+        cfl = 0.1,
+        n_saves = 120,
+    )
 end
 
 function run_rossby_haurwitz()

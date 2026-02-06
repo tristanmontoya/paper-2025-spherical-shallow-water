@@ -1,4 +1,3 @@
-
 function plot_unsteady_solid_body_rotation()
     # Figure 2a
     plot_convergence(
@@ -156,7 +155,7 @@ function plot_barotropic_instability()
         legend_position = (:left, :bottom),
         ykey = "entropy",
         ynorm = 1e-5,
-        exponent_text = L"\times 10^{-8}", # TODO: check exponent
+        exponent_text = L"\times 10^{-5}",
         xticks = [0, 3, 6, 9, 12],
         xlims = [0, 12],
         ylims = [-5, 0.25],
@@ -172,7 +171,7 @@ function plot_barotropic_instability()
         legend_position = (:left, :bottom),
         ykey = "entropy",
         ynorm = 1e-5,
-        exponent_text = L"\times 10^{-8}", # TODO: check exponent
+        exponent_text = L"\times 10^{-5}",
         xticks = [0, 3, 6, 9, 12],
         xlims = [0, 12],
         ylims = [-5, 0.25],
@@ -188,18 +187,19 @@ function plot_barotropic_instability()
         legend_position = (:left, :bottom),
         ykey = "entropy",
         ynorm = 1e-5,
-        exponent_text = L"\times 10^{-8}",
+        exponent_text = L"\times 10^{-5}",
         xticks = [0, 3, 6, 9, 12],
         xlims = [0, 12],
         ylims = [-5, 0.25],
     )
 
-    # Figures 9a and 9b
+    # Figures 6a, 6b, and 6c
     plot_timestep_study()
 end
 
 function plot_timestep_study()
-    project_dir = joinpath(RESULTS_DIR, "20251219_steady_barotropic_instability_timestep_study")
+    project_dir =
+        joinpath(RESULTS_DIR, "20251219_steady_barotropic_instability_timestep_study")
 
     plot_timestep_study(project_dir)
 end
@@ -208,7 +208,8 @@ function plot_timestep_study(
     project_dir::AbstractString;
     plots_dir = PLOTS_DIR,
     sort_rev = true,
-    evolution_plot_name = "steady_barotropic_instability_timestep_entropy_evolution.pdf",
+    entropy_evolution_plot_name = "steady_barotropic_instability_timestep_entropy_evolution.pdf",
+    mass_evolution_plot_name = "steady_barotropic_instability_timestep_mass_evolution.pdf",
     convergence_plot_name = "steady_barotropic_instability_timestep_convergence.pdf",
 )
     # Collect timestep run directories (expected suffix: _dt<value>)
@@ -238,33 +239,59 @@ function plot_timestep_study(
     run_dirs = run_dirs[order]
     dts = dts[order]
     labels = [LaTeXString("\$\\Delta t =\$" * @sprintf("%.6g\\,s", dt)) for dt in dts]
-    colors = collect(Makie.cgrad(:blues, length(run_dirs); categorical = true))
+    colors_mass =
+        collect(Makie.cgrad(:heat, length(run_dirs) + 1; categorical = true))[2:end]
+    colors_entropy = collect(Makie.cgrad(:blues, length(run_dirs); categorical = true))
 
-    # Figure 9a: Entropy evolution over time (curves for different dt)
+    # Figure 6a: Mass evolution over time (curves for different dt)
     plot_evolution(
         run_dirs;
         line_order = collect(1:length(run_dirs)),
         plots_dir = plots_dir,
-        plot_name = evolution_plot_name,
+        plot_name = mass_evolution_plot_name,
         labels = labels,
         styles = fill(:solid, length(run_dirs)),
-        colors = colors,
+        colors = colors_mass,
+        ykey = "mass",
+        ylabel = LaTeXString("Normalized absolute mass change"),
+        relative = true,
+        x_in_days = true,
+        vlinepositions = Float64[],
+        legend_position = (:left, :top),
+        show_in_inset = collect(1:length(run_dirs)),
+        xlims = [0, 12.0],
+        xticks = [0, 3, 6, 9, 12],
+        plot_absolute = true,
+        yscale = log10,
+        ylims = [1e-16, 1e-12],
+        reverse_foreground_order = true,
+    )
+
+    # Figure 6b: Entropy evolution over time (curves for different dt)
+    plot_evolution(
+        run_dirs;
+        line_order = collect(1:length(run_dirs)),
+        plots_dir = plots_dir,
+        plot_name = entropy_evolution_plot_name,
+        labels = labels,
+        styles = fill(:solid, length(run_dirs)),
+        colors = colors_entropy,
         ykey = "entropy",
         ylabel = LaTeXString("Normalized absolute entropy change"),
         relative = true,
         x_in_days = true,
         vlinepositions = Float64[],
-        size = (500, 350),
         legend_position = (:left, :top),
         show_in_inset = collect(1:length(run_dirs)),
-        xlims= [0, 12.0],
+        xlims = [0, 12.0],
         xticks = [0, 3, 6, 9, 12],
         yscale = log10,
         plot_absolute = true,
-        ylims = [1e-15, 1e-4],
+        ylims = [1e-16, 1e-4],
+        reverse_foreground_order = true,
     )
 
-    # Figure 9b: Convergence plot at t = 12 days
+    # Figure 6c: Convergence plot at t = 12 days
     plot_convergence(
         [project_dir];
         plots_dir = plots_dir,
@@ -272,10 +299,10 @@ function plot_timestep_study(
         file = "timestep_analysis.dat",
         select_cols = nothing,
         xkey = "dt",
-        ykeys = ["entropy_error", "mass_error"],
-        labels = [LaTeXString("Entropy"), LaTeXString("Mass")],
-        styles = [:solid, :dash],
-        colors = [1, 2],
+        ykeys = ["mass_error", "entropy_error"],
+        labels = [LaTeXString("Mass"), LaTeXString("Entropy")],
+        styles = [:dash, :solid],
+        colors = [2, 1],
         xlabel = L"Time step size $\Delta t$ (s)",
         ylabel = L"Normalized absolute change at $t = 12$ days",
         xscale = log10,
@@ -287,8 +314,8 @@ function plot_timestep_study(
         triangle_top = false,
         triangle_bottom = true,
         triangle_bottom_order = 5,
+        triangle_bottom_attach_index = 2,
         legend_position = (:left, :top),
-        size = (500, 350),
     )
 end
 

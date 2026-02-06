@@ -1,7 +1,7 @@
 name = "SphericalShallowWater"
 uuid = "07b7820f-0b4c-49f5-b7cd-1b0a856e0d82"
 version = "0.1.0"
-authors = ["Tristan Montoya <montoya.tristan@gmail.com>", "Andrés Rueda-Ramírez <aruedara@uni-koeln.de>"]
+authors = ["Tristan Montoya <montoya.tristan@gmail.com>", "Andrés Rueda-Ramírez <aruedara@uni-koeln.de>", "Gregor Gassner <ggassner@uni-koeln.de>"]
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"

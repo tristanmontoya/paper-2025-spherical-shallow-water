@@ -79,7 +79,7 @@ function run_driver(
             io,
             string(
                 headers[1:3]...,
-                rpad.(headers[4:end-2], 25)...,
+                rpad.(headers[4:(end-2)], 25)...,
                 headers[end-1],
                 headers[end],
             ),
@@ -193,7 +193,8 @@ function run_timestep_study(
 
     # Format output file and write headers
     fmt1 = Printf.Format(
-        "%-4d" * "%-4d" *
+        "%-4d" *
+        "%-4d" *
         "%-25.17e" * # dt
         "%-25.17e" * # mass_initial
         "%-25.17e" * # mass_final
@@ -206,7 +207,8 @@ function run_timestep_study(
         "\n",
     ) # no EOC for first iteration
     fmt2 = Printf.Format(
-        "%-4d" * "%-4d" *
+        "%-4d" *
+        "%-4d" *
         "%-25.17e" * # dt
         "%-25.17e" * # mass_initial
         "%-25.17e" * # mass_final
@@ -232,12 +234,7 @@ function run_timestep_study(
         "entropy_order            ",
     ]
     open(joinpath(project_dir, "timestep_analysis.dat"), "w") do io
-        println(
-            io,
-            string(
-                headers...,
-            ),
-        )
+        println(io, string(headers...))
     end
 
     dt_values = RealT[]
@@ -245,7 +242,7 @@ function run_timestep_study(
     entropy_errors = RealT[]
 
     # Run simulations with decreasing time steps
-    for (iter, dt_factor) in enumerate(2.0 .^ ((0:iterations-1)))
+    for (iter, dt_factor) in enumerate(2.0 .^ ((0:(iterations-1))))
         dt = initial_dt / dt_factor
 
         # Run simulation with fixed time step (no CFL-based adaptation)
@@ -264,23 +261,18 @@ function run_timestep_study(
             cells_per_dimension = cells_per_dimension,
             tspan = tspan,
             dt_initial = dt,
-            cfl = nothing, # disable CFL-based time stepping
+            adapt_timestep = false,
             interval = 50,
             n_saves = n_saves,
         )
 
         analysis_file = joinpath(
-            project_dir, 
+            project_dir,
             string("N", polydeg, "M", cells_per_dimension, "_dt", dt),
-            "analysis.dat"
+            "analysis.dat",
         )
-        
-        data = CSV.File(
-            analysis_file;
-            header = true,
-            delim = ' ',
-            ignorerepeated = true,
-        )
+
+        data = CSV.File(analysis_file; header = true, delim = ' ', ignorerepeated = true)
 
         # Extract mass and entropy errors
         mass_initial = data.mass[1]
@@ -313,10 +305,12 @@ function run_timestep_study(
                     "missing",
                 )
             else
-                mass_order = log(mass_errors[end] / mass_errors[end-1]) / 
-                                log(dt_values[end] / dt_values[end-1])
-                entropy_order = log(entropy_errors[end] / entropy_errors[end-1]) / 
-                                log(dt_values[end] / dt_values[end-1])
+                mass_order =
+                    log(mass_errors[end] / mass_errors[end-1]) /
+                    log(dt_values[end] / dt_values[end-1])
+                entropy_order =
+                    log(entropy_errors[end] / entropy_errors[end-1]) /
+                    log(dt_values[end] / dt_values[end-1])
                 Printf.format(
                     io,
                     fmt2,
@@ -340,13 +334,15 @@ function run_timestep_study(
 end
 
 function plot_convergence(
-    dirs = joinpath(
-        RESULTS_DIR,
-        string(
-            Dates.format(today(), dateformat"yyyymmdd"),
-            "_unsteady_solid_body_rotation",
+    dirs = [
+        joinpath(
+            RESULTS_DIR,
+            string(
+                Dates.format(today(), dateformat"yyyymmdd"),
+                "_unsteady_solid_body_rotation",
+            ),
         ),
-    );
+    ];
     plots_dir = PLOTS_DIR,
     plot_name = nothing,
     labels = [LaTeXString("EC"), LaTeXString("ES")],
@@ -384,6 +380,7 @@ function plot_convergence(
     triangle_top_order = 5,
     triangle_size = 2.0,
     triangle_shift = 2.0,
+    triangle_bottom_attach_index = nothing,
     legend_position = (:right, :bottom),
     kwargs...,
 )
@@ -392,20 +389,22 @@ function plot_convergence(
 
     # Load data from file 
     set_theme!(Theme(font = font))
-    data = Dict(dir => begin
-        path = joinpath(dir, file)
-        if isnothing(select_cols)
-            CSV.File(path; header = true, delim = ' ', ignorerepeated = true)
-        else
-            CSV.File(
-                path;
-                header = true,
-                delim = ' ',
-                select = select_cols,
-                ignorerepeated = true,
-            )
-        end
-    end for dir in dirs)
+    data = Dict(
+        dir => begin
+            path = joinpath(dir, file)
+            if isnothing(select_cols)
+                CSV.File(path; header = true, delim = ' ', ignorerepeated = true)
+            else
+                CSV.File(
+                    path;
+                    header = true,
+                    delim = ' ',
+                    select = select_cols,
+                    ignorerepeated = true,
+                )
+            end
+        end for dir in dirs
+    )
 
     # Set up figure parameters
     f = Figure(size = size, fontsize = fontsize, labelfontsize = legendfontsize)
@@ -478,14 +477,40 @@ function plot_convergence(
 
     # Make convergence triangle
     if triangle_bottom
+        attach_index = if isnothing(triangle_bottom_attach_index)
+            isnothing(ykeys) ? length(dirs) : 1
+        else
+            triangle_bottom_attach_index
+        end
+
+        dir_attach = if isnothing(ykeys)
+            if !(1 <= attach_index <= length(dirs))
+                error(
+                    "plot_convergence: triangle_bottom_attach_index=$(attach_index) out of range. " *
+                    "Expected 1:$(length(dirs)).",
+                )
+            end
+            dirs[attach_index]
+        else
+            if !(1 <= attach_index <= length(ykeys))
+                error(
+                    "plot_convergence: triangle_bottom_attach_index=$(attach_index) out of range for ykeys. " *
+                    "Expected 1:$(length(ykeys)).",
+                )
+            end
+            first(dirs)
+        end
+
+        ykey_attach = isnothing(ykeys) ? ykey : ykeys[attach_index]
+
         if !isnothing(ynorm)
-            normalization = data[dirs[end]][ynorm][end]
+            normalization = data[dir_attach][ynorm][end]
         else
             normalization = 1.0
         end
-        x0 = data[dirs[end]][xkey][end]
+        x0 = data[dir_attach][xkey][end]
         x1 = x0 * triangle_size
-        y0 = (data[dirs[end]][ykey][end] / normalization) / triangle_shift
+        y0 = (data[dir_attach][ykey_attach][end] / normalization) / triangle_shift
         y1 = y0 * triangle_size^triangle_bottom_order
         lines!(ax, [x0, x1, x1, x0], [y0, y0, y1, y0]; color = :black)
 
@@ -543,14 +568,16 @@ function plot_convergence(
 end
 
 function plot_evolution(
-    dirs = joinpath(
-        RESULTS_DIR,
-        string(
-            Dates.format(today(), dateformat"yyyymmdd"),
-            "_steady_barotropic_instability",
+    dirs = [
+        joinpath(
+            RESULTS_DIR,
+            string(
+                Dates.format(today(), dateformat"yyyymmdd"),
+                "_steady_barotropic_instability",
+            ),
+            "N7M4",
         ),
-        "N7M4",
-    );
+    ];
     line_order = [2, 1],
     plots_dir = PLOTS_DIR,
     plot_name = nothing,
@@ -599,10 +626,19 @@ function plot_evolution(
     inset_valign = 0.96,
     inset_yaxisposition = :right,
     show_in_inset = [2],
+    reverse_foreground_order = false,
     kwargs...,
 )
 
     mkpath(plots_dir)
+
+    # Guard defaults when only a single directory is provided.
+    if maximum(line_order) > length(dirs)
+        line_order = collect(1:length(dirs))
+    end
+    if maximum(show_in_inset) > length(dirs)
+        show_in_inset = [1]
+    end
 
     # Load data from file 
     set_theme!(Theme(font = font))
@@ -659,8 +695,13 @@ function plot_evolution(
     end
 
     # Draw lines for each directory
-    for (dir, label, style, color) in
-        zip(dirs[line_order], labels[line_order], styles[line_order], colors[line_order])
+    ordered_dirs = dirs[line_order]
+    ordered_labels = labels[line_order]
+    ordered_styles = styles[line_order]
+    ordered_colors = colors[line_order]
+    nlines = length(ordered_dirs)
+    for (i, (dir, label, style, color)) in
+        enumerate(zip(ordered_dirs, ordered_labels, ordered_styles, ordered_colors))
         if x_in_days
             xvalues = data[dir][xkey] / SECONDS_PER_DAY
         else
@@ -677,7 +718,7 @@ function plot_evolution(
         end
 
         yvalues = yvalues / ynorm
-        lines!(
+        plt = lines!(
             ax,
             xvalues,
             yvalues,
@@ -686,6 +727,11 @@ function plot_evolution(
             linewidth = linewidth,
             color = (color isa Integer ? Makie.Cycled(color) : color),
         )
+        if reverse_foreground_order
+            # Keep legend/order semantics intact (based on insertion order), but flip
+            # foreground/background stacking via a z-translation.
+            translate!(plt, 0, 0, nlines - i)
+        end
         if verbose
             finite_y = filter(isfinite, yvalues)
             if isempty(finite_y)
@@ -733,18 +779,19 @@ function plot_evolution(
         )
         ylims!(ax_inset, inset_ylims)
         xlims!(ax_inset, inset_xlims)
-        for (dir, label, style, color) in zip(
-            dirs[show_in_inset][line_order[show_in_inset]],
-            labels[show_in_inset][line_order[show_in_inset]],
-            styles[show_in_inset][line_order[show_in_inset]],
-            colors[show_in_inset][line_order[show_in_inset]],
-        )
+        inset_dirs = dirs[show_in_inset][line_order[show_in_inset]]
+        inset_labels = labels[show_in_inset][line_order[show_in_inset]]
+        inset_styles = styles[show_in_inset][line_order[show_in_inset]]
+        inset_colors = colors[show_in_inset][line_order[show_in_inset]]
+        ninset = length(inset_dirs)
+        for (i, (dir, label, style, color)) in
+            enumerate(zip(inset_dirs, inset_labels, inset_styles, inset_colors))
             if x_in_days
                 xvalues = data[dir][xkey] / SECONDS_PER_DAY
             else
                 xvalues = data[dir][xkey]
             end
-            
+
             if relative
                 yvalues = (data[dir][ykey] .- data[dir][ykey][1]) / data[dir][ykey][1]
             else
@@ -754,8 +801,8 @@ function plot_evolution(
             if plot_absolute
                 yvalues = abs.(yvalues)
             end
-                
-            lines!(
+
+            plt_inset = lines!(
                 ax_inset,
                 xvalues,
                 yvalues,
@@ -764,6 +811,9 @@ function plot_evolution(
                 linewidth = linewidth,
                 color = (color isa Integer ? Makie.Cycled(color) : color),
             )
+            if reverse_foreground_order
+                translate!(plt_inset, 0, 0, ninset - i)
+            end
             translate!(ax_inset.blockscene, 0, 0, 150)
         end
     end
@@ -772,9 +822,9 @@ function plot_evolution(
         legend_plots = if isnothing(vlinepositions)
             ax.scene.plots
         else
-            ax.scene.plots[(length(vlinepositions) * 2 + 1):end]
+            ax.scene.plots[(length(vlinepositions)*2+1):end]
         end
-        axislegend(
+        leg = axislegend(
             ax,
             legend_plots[line_order],
             labels;
@@ -782,6 +832,8 @@ function plot_evolution(
             font = legendfont,
             labelsize = legendfontsize,
         )
+        # Keep legend above all curves regardless of any z-order tweaks to the lines.
+        translate!(leg.blockscene, 0, 0, 1000)
     end
     resize_to_layout!(f)
     if isnothing(plot_name)
