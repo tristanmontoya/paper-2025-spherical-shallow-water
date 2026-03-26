@@ -1,19 +1,22 @@
-# [Entropy-Stable Discontinuous Spectral-Element Methods for the Spherical Shallow Water Equations in Covariant Form](https://arxiv.org/abs/2509.08790)
+# [Entropy-Stable Discontinuous Spectral-Element Methods for the Spherical Shallow Water Equations in Covariant Form](https://doi.org/10.1016/j.jcp.2026.114782)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-success.svg)](https://opensource.org/licenses/MIT) [![doi: https://doi.org/10.5281/zenodo.17059901](https://zenodo.org/badge/DOI/10.5281/zenodo.17059900.svg)](https://doi.org/10.5281/zenodo.17059900)
 
-This repository contains information and code to reproduce the results presented in the following article:
+This repository contains information and code to reproduce the results presented in the following published article:
 ```bibtex
-@article{MontoyaSphericalShallowWater2025,
+@article{MontoyaSphericalShallowWater2026,
   title={Entropy-Stable Discontinuous Spectral-Element Methods for the 
          Spherical Shallow Water Equations in Covariant Form},
   author={Montoya, Tristan and Rueda-Ramírez, Andrés M. and Gassner, Gregor J.},
-  year={2025},
-  journal = {Preprint, arXiv:2509.08790 [math.NA]},
+  year={2026},
+  journal={Journal of Computational Physics},
+  volume={555},
+  pages={114782},
+  doi={10.1016/j.jcp.2026.114782},
 }
 ```
 
-Please cite the above manuscript if you use or adapt the code in this repository or that of the associated solvers implemented in [TrixiAtmo.jl](https://github.com/trixi-framework/TrixiAtmo.jl) in your research. Any questions regarding the content of the manuscript or technical issues with the code should be directed to the corresponding author at [montoya.tristan@gmail.com](mailto:montoya.tristan@gmail.com).
+Please cite the published article above if you use or adapt the code in this repository or that of the associated solvers implemented in [TrixiAtmo.jl](https://github.com/trixi-framework/TrixiAtmo.jl) in your research. Any questions regarding the content of the article or technical issues with the code should be directed to the corresponding author at [montoya.tristan@gmail.com](mailto:montoya.tristan@gmail.com).
 
 ## Abstract
 We introduce discontinuous spectral-element methods of arbitrary order that are well balanced, conservative of mass, and conservative or dissipative of total energy (i.e., a mathematical entropy function) for a covariant flux formulation of the rotating shallow water equations with variable bottom topography on curved manifolds such as the sphere. The proposed methods are based on a skew-symmetric splitting of the tensor divergence in covariant form, which we implement and analyze within a general flux-differencing framework using tensor-product summation-by-parts operators. Such schemes are proven to satisfy semi-discrete mass and energy conservation on general unstructured quadrilateral grids in addition to well balancing for arbitrary continuous bottom topographies, with energy dissipation resulting from a suitable choice of numerical interface flux. Furthermore, the proposed covariant formulation permits an analytical representation of the geometry and associated metric terms while satisfying the aforementioned entropy stability, conservation, and well-balancing properties without the need to approximate the metric terms so as to enforce discrete metric identities. Numerical experiments on cubed-sphere grids are presented in order to verify the schemes' structure-preservation properties as well as to assess their accuracy and robustness within the context of several standard test cases characteristic of idealized atmospheric flows. Our theoretical and numerical results support the further development of the proposed methodology towards a full dynamical core for numerical weather prediction and climate modelling, as well as broader applications to other hyperbolic and advection-dominated systems of partial differential equations on curved manifolds.

@@ -194,14 +194,8 @@ function plot_barotropic_instability()
     )
 
     # Figures 6a, 6b, and 6c
-    plot_timestep_study()
-end
-
-function plot_timestep_study()
-    project_dir =
-        joinpath(RESULTS_DIR, "20251219_steady_barotropic_instability_timestep_study")
-
-    plot_timestep_study(project_dir)
+    plot_timestep_study(joinpath(RESULTS_DIR,                   
+                        "20251219_steady_barotropic_instability_timestep_study"))
 end
 
 function plot_timestep_study(
@@ -263,7 +257,7 @@ function plot_timestep_study(
         xticks = [0, 3, 6, 9, 12],
         plot_absolute = true,
         yscale = log10,
-        ylims = [1e-16, 1e-12],
+        ylims = [1e-16, 1e-4],
         reverse_foreground_order = true,
     )
 
@@ -309,8 +303,8 @@ function plot_timestep_study(
         yscale = log10,
         xticks = [10, 20, 40, 80, 160, 320],
         xlims = nothing,
-        ylims = [1e-15, 1e-5],
-        yticks = LogTicks(-15:-5),
+        ylims = [1e-16, 1e-4],
+        yticks = LogTicks(-16:2:-4),
         triangle_top = false,
         triangle_bottom = true,
         triangle_bottom_order = 5,
